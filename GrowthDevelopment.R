@@ -124,7 +124,7 @@ lsmeans(Lmer3, pairwise ~ Temp|Light+Site) #Temp regime had an effect under ever
 #plot lsmeans
 Obj1<-data.frame(summary(lsmeans(Lmer3, ~ sex*Site*Temp*Light, type = "response")))
 
-ggplot(data = Obj1, aes(y = rate, x = Site, shape = sex, linetype = sex)) +
+ggplot(data = Obj1, aes(y = response, x = Site, shape = sex, linetype = sex)) +
   rory_theme +
   facet_wrap(~Temp+Light, nrow = 1) +
   geom_errorbar(aes(ymax = asymp.UCL, ymin = asymp.LCL), position = position_dodge(width = .6)) +
