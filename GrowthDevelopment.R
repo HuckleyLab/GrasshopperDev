@@ -133,6 +133,15 @@ ggplot(data = Obj1, aes(y = response, x = Site, shape = sex, linetype = sex)) +
   ylab("Time to adult (d, LS-means)") + xlab("Site")
 
 
+#check lmer for singularity, no singulatiry with lmer, OK to assume normal?
+Lmer3 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+
+#plot predictions
+plot_model(Lmer3, type="pred", terms=c("Site","Temp","Light"), show.data=TRUE)
+
 ####### Analyze maturation rate while including all instars #########
 
 Instars_Adult <- Instars[is.na(Instars$Age_Adult) == FALSE,]
