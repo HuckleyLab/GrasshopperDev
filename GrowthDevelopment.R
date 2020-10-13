@@ -133,7 +133,7 @@ ggplot(data = Obj1, aes(y = response, x = Site, shape = sex, linetype = sex)) +
   ylab("Time to adult (d, LS-means)") + xlab("Site")
 
 
-#check lmer for singularity, no singulatiry with lmer, OK to assume normal?
+#check lmer for singularity, no singularity with lmer, OK to assume normal?
 Lmer3 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
                  Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
                  (1|Female2), na.action = 'na.omit', data = Instars)
