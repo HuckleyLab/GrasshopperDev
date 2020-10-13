@@ -81,9 +81,11 @@ Instars$sex <- as.factor(Instars$sex)
 Instars$Temp <- as.factor(Instars$Temp)
 Instars$Light <- as.factor(Instars$Light)
 Instars$Female <- as.factor(Instars$Female)
-Instars$Female2 <- as.factor(paste(Instars$Female, Instars$Site, sep = "_"))
+Instars$Female2 <- as.factor(paste(Instars$Female, Instars$Site, sep = "_")) #this gives each mother her own ID (now differentiating between FY1's across sites)
 
 hist(as.numeric(Instars$Age_Adult)) #not quite normal, should probably use a Poisson distribution...
+
+#note: (1|Female2) means to count this as a random effect
 
 Lmer0 <- glmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
                  (1|Female2), family = poisson, na.action = 'na.omit', data = Instars)
@@ -110,12 +112,12 @@ Lmer5 <- glmer(as.numeric(Age_Adult) ~ Site + Temp + Light +
                  (1|Female2), family = poisson, na.action = 'na.omit', data = Instars)
 
 aictab(list(Lmer0, Lmer1, Lmer2, Lmer3, Lmer4, Lmer5), modnames = c("Lmer0", "Lmer1", "Lmer2", "Lmer3", "Lmer4", "Lmer5"))
-#Lmer3 is by far the preferred model according to AIC
+#Lmer3 is by far the preferred model according to AICc
 
 summary(Lmer3)
 Anova(Lmer3, type = 3)
-Validate(Lmer3) #looks great
-
+Validate(Lmer3) #looks great #Julia: Error in plot.new() figure margins too large
+#Julia: need to read about the lsmeans function
 #look at individual contrasts
 lsmeans(Lmer3, pairwise ~ Site|Temp+Light) #A1 and C1 differ from one another in HV_S, LV_L, and LV_S
 lsmeans(Lmer3, pairwise ~ Light|Temp) #Light generally has an effect in LV but not HV
@@ -136,7 +138,7 @@ ggplot(data = Obj1, aes(y = response, x = Site, shape = sex, linetype = sex)) +
 ####### Analyze maturation rate while including all instars #########
 
 Instars_Adult <- Instars[is.na(Instars$Age_Adult) == FALSE,]
-Instars_Adult_Long <- melt(Instars_Adult[,c(1:8,50:54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "sex", "Temp", "Light"))
+Instars_Adult_Long <- melt(Instars_Adult[,c(1:8,50:54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "sex", "Temp", "Light")) #tracks the time (value) when each individual reached each instar (variable)
 
 Lmer0.1 <- glmer(as.numeric(value) ~ sex * Site * Temp * Light + 
                    (1|Individual/variable/Female2), family = poisson, na.action = 'na.omit', data = Instars_Adult_Long)
