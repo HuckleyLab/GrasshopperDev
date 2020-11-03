@@ -1,5 +1,6 @@
 ```{r}
-rm(list=ls(all = TRUE))
+#rm(list=ls(all = TRUE))
+library(faraway)
 
 library(stringr)
 library(foreach)
@@ -243,6 +244,68 @@ aictab(list(nLmer0, nLmer1, nLmer2, nLmer3, nLmer4, nLmer5), modnames = c("nLmer
 #interesting... it still has me select nLmer0.
 ```
 
+NEW: Further exploring nLmer0
+```{r}
+summary(nLmer0)
+Anova(nLmer0, type = 3)
+Validate(nLmer0)
+```
+
+```{r}
+#look at individual contrasts
+lsmeans(nLmer0, pairwise ~ Site|Temp+Light) #A is significantly different from B and C at LV_L and HV_S; at LV_S it's just significantly different from C
+lsmeans(nLmer0, pairwise ~ Light|Temp) #Light generally has an effect in LV but not HV
+lsmeans(nLmer0, pairwise ~ Temp|Light+Site) #Temp regime had an effect under every light and site, with LV always greater than HV
+```
+
+```{r}
+#crPlot(nLmer0, "Site) #ISSUE: doesn't like lmer class
+```
+
+
+Note: not sure about this code (below), actually. I found it online and should figure out exactly how it's working.
+```{r}
+d <- Instars %>% select(Age_Adult, sex, Site, Temp, Light) %>% drop_na()
+
+# Fit the model
+#fit <- lm(Sepal.Width ~ ., data = iris)
+
+# Obtain predicted and residual values
+d$predicted <- predict(nLmer0) 
+d$residuals <- residuals(nLmer0) 
+
+# Create plot
+d %>% 
+  gather(key = "iv", value = "x", -Age_Adult, -predicted, -residuals) %>%
+  ggplot(aes(x = x, y = Age_Adult)) +
+  geom_segment(aes(xend = x, yend = predicted), alpha = .2) +
+  geom_point(aes(color = residuals)) +
+  scale_color_gradient2(low = "blue", mid = "white", high = "red") +
+  guides(color = FALSE) +
+  geom_point(aes(y = predicted), shape = 1) +
+  facet_grid(~ iv, scales = "free_x") +
+  theme_bw()
+```
+```{r}
+plot_model(Lmer0, type="pred", terms=c("Site","Temp","Light", "sex"), show.data=TRUE)
+```
+
+
+
+
+```{r}
+d <- Instars %>% select(Age_Adult, sex, Site, Temp, Light, Female2) %>% drop_na() #dropped all NAs in advance to deal na.omit / na.fail issues
+dat <- Instars
+fm1 <- lmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), REML=FALSE, data = d)
+dd <- dredge(fm1)
+subset(dd, delta < 4)
+
+#dredge says the best model is the most complex
+```
+
+
+END OF NEW
 
 For curiousity: What happens when we compare models from poisson and gaussian? This code doesn't work bc "Functions do not support mixture of model classes"
 ```{r}
@@ -284,4 +347,15 @@ plot_model(Lmer3, type="pred", terms=c("Site","Temp","Light"), show.data=TRUE)
 ```
 
 
+
+```{r}
+Anova(nLmer0, type = 3)
+```
+```{r}
+Anova(Lmer0, type = 3)
+```
+
+```{r}
+coefficients(Lmer3)
+```
 
