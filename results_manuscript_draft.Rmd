@@ -1,0 +1,166 @@
+---
+title: "Results_manuscript_draft"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+library(faraway)
+library(stringr)
+library(foreach)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(plotrix)
+library(nlme)
+library(lme4)
+library(car)
+library(AICcmodavg)
+library(lsmeans)
+library(reshape2)
+library(MASS)
+library(sjPlot) #for plot_new
+library(tidyverse)
+library(knitr)
+
+source('Functions.R')
+
+####### Input files ##########
+
+#setwd("./data/")
+
+Instars <- read.csv(file = "./data/GrasshopperData_3rdToAdult_SPR16.csv", header = TRUE, stringsAsFactors = FALSE)
+str(Instars)
+
+
+Instars$sex <- ifelse(Instars$sex == "", NA, Instars$sex)
+
+##### Format dates and calculate ages ########
+
+Instars$Date1_Hatch <- as.Date(Instars$Date_Hatch, format = "%m/%d/%Y")
+Instars$Date1_1st <- as.Date(Instars$Date_1st, format = "%m/%d/%Y")
+Instars$Date1_2nd <- as.Date(Instars$Date_2nd, format = "%m/%d/%Y")
+Instars$Date1_3rd <- as.Date(Instars$Date_3rd, format = "%m/%d/%Y")
+Instars$Date1_4th <- as.Date(Instars$Date_4th, format = "%m/%d/%Y")
+Instars$Date1_5th <- as.Date(Instars$Date_5th, format = "%m/%d/%Y")
+Instars$Date1_5th. <- as.Date(Instars$Date_5th., format = "%m/%d/%Y")
+Instars$Date1_Adult <- as.Date(Instars$Date_Adult, format = "%m/%d/%Y")
+Instars$Date1_Death <- as.Date(Instars$Date_Death, format = "%m/%d/%Y")
+
+Instars$Age_3rd <- Instars$Date1_3rd - Instars$Date1_Hatch
+Instars$Age_4th <- Instars$Date1_4th - Instars$Date1_Hatch
+Instars$Age_5th <- Instars$Date1_5th - Instars$Date1_Hatch
+Instars$Age_Adult <- Instars$Date1_Adult - Instars$Date1_Hatch
+
+
+#trim out pell data
+
+Instars <- Instars[Instars$Species == "dodg",]
+
+
+#set factors
+
+Instars$Site <- as.factor(Instars$Site)
+Instars$sex <- as.factor(Instars$sex)
+Instars$Temp <- as.factor(Instars$Temp)
+Instars$Light <- as.factor(Instars$Light)
+Instars$Female <- as.factor(Instars$Female)
+Instars$Female2 <- as.factor(paste(Instars$Female, Instars$Site, sep = "_")) #this gives each mother her own ID (now differentiating between FY1's across sites)
+```
+
+## Results
+### Maturation Rate
+
+Examine age to adult with no consideration of time to earlier instars
+
+For analyses, I used the glmer function from Lme4 library to model the effects of sex, site, temp regime, and light regime on age of adulthood, assuming a normal distribution.  I included the identity of the grasshopper's mother as a random effect.  I constructed 6 nested models: 1) including all interactions, 2) dropped 3- and 4-way interactions with sex, 3) only 2-way interactions, 4) all interactions not including sex, 5) sex removed completely, 6) sex and 3-way interaction removed completely.  The preferred model (ΔAICc > 10) is the model including the main effects of all 4 varaiables, as well as all of their higher order interactions.  
+
+Plot based on individual means:
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.dim=c(9,7)}
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+
+Give.N <- function(x){
+  return(c(y = MaxSE(x)*1.01, label = length(x))) 
+}
+
+#drop NA sex
+Instars= Instars[which(Instars$sex %in% c("F","M")),]
+
+ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp)) +
+  rory_theme +
+  facet_wrap(~sex+Light, nrow = 1) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_viridis_d()
+```
+
+A plot of the LS-means and CI from this model are below (the equivalent of Rory's fig1, but I made it appear like yours).
+```{r, echo=FALSE, fig.dim=c(9,7)}
+nLmer0 <- lmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light +
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+Obj<-data.frame(summary(lsmeans(nLmer0, ~ sex*Site*Temp*Light, type = "response"))) #shouldn't need this here
+
+ggplot(data = Obj, aes(y = response, x = Site, color = Temp)) +
+  rory_theme +
+  facet_wrap(~sex+Light, nrow = 1) +
+  geom_errorbar(aes(ymax = lower.CL, ymin = upper.CL), position = position_dodge(width = .6)) +
+  geom_line(aes(x = as.numeric(as.factor(Site))), size = 1.5, position = position_dodge(width = .6)) +
+  geom_point(size = 6, position = position_dodge(width = .6)) +
+  ylab("Time to adult (d, LS-means)") + xlab("Site")+scale_color_viridis_d()
+```
+
+A plot of the LS-means and CI from this model are below (the direct equivalent of Rory's fig1).
+
+```{r, echo=FALSE, fig.dim=c(9,7)}
+
+#plot lsmeans
+#Obj<-data.frame(summary(lsmeans(nLmer0, ~ sex*Site*Temp*Light, type = "response")))
+
+ggplot(data = Obj, aes(y = response, x = Site, shape = sex, linetype = sex)) +
+  rory_theme +
+  facet_wrap(~Temp+Light, nrow = 1) +
+  geom_errorbar(aes(ymax = lower.CL, ymin = upper.CL), position = position_dodge(width = .6)) +
+  geom_line(aes(x = as.numeric(as.factor(Site))), size = 1.5, position = position_dodge(width = .6)) +
+  geom_point(size = 6, position = position_dodge(width = .6)) +
+  ylab("Time to adult (d, LS-means)") + xlab("Site")
+```
+
+Here is an ANOVA table: 
+```{r, echo=FALSE}
+a <- Anova(nLmer0, type=3)
+a$Signifcance[a$`Pr(>Chisq)`<.05] <- "*"
+a$Signifcance[a$`Pr(>Chisq)`<.001] <- "***"
+options(knitr.kable.NA = '')
+kable(a, digits=3)
+```
+
+The significant main effects were that grasshoppers developed faster at high temperature variance (p<.001) and long photoperiod (p<.05) and that males developed faster than females (p<.05). Site alone did not have a significant effect according to our model, but the highest elevation site (C1) did appear to develop faster except for female grasshoppers in a long photoperiod environment. There was also an interaction between day length and light variance where long days actually delayed development for grasshoppers in low temperature variance environments. Long days sped up development for males in environments with high temperature variance, but not for females in those environments.
+
+```{r, include=FALSE}
+#Just stray things I wrote that I was unsure about.
+
+# The development of males at a low temperature variance is especially delayed compared to that of females (p<.05). There was also a significant interaction between elevation and 
+```
+
+
+```{r, include=FALSE}
+# Lauren's takeaways (for reference):
+# sex:site:temp:light=
+#  LV slower development 
+#  Long days delay development for LV, speed development for HV males but not females
+#  high elevation (C1) develops faster, except for long day females:
+#  Male: main effect develops slightly faster
+```
+
+
+
+
+
+

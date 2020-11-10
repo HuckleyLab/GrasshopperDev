@@ -1,0 +1,361 @@
+```{r}
+#rm(list=ls(all = TRUE))
+library(faraway)
+
+library(stringr)
+library(foreach)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(plotrix)
+library(nlme)
+library(lme4)
+library(car)
+library(AICcmodavg)
+library(lsmeans)
+library(reshape2)
+library(MASS)
+library(sjPlot) #for plot_new
+library(tidyverse)
+
+source('Functions.R')
+
+####### Input files ##########
+
+setwd("./data/")
+
+Instars <- read.csv(file = "GrasshopperData_3rdToAdult_SPR16.csv", header = TRUE, stringsAsFactors = FALSE)
+str(Instars)
+
+Instars$sex <- ifelse(Instars$sex == "", NA, Instars$sex)
+
+##### Format dates and calculate ages ########
+
+Instars$Date1_Hatch <- as.Date(Instars$Date_Hatch, format = "%m/%d/%Y")
+Instars$Date1_1st <- as.Date(Instars$Date_1st, format = "%m/%d/%Y")
+Instars$Date1_2nd <- as.Date(Instars$Date_2nd, format = "%m/%d/%Y")
+Instars$Date1_3rd <- as.Date(Instars$Date_3rd, format = "%m/%d/%Y")
+Instars$Date1_4th <- as.Date(Instars$Date_4th, format = "%m/%d/%Y")
+Instars$Date1_5th <- as.Date(Instars$Date_5th, format = "%m/%d/%Y")
+Instars$Date1_5th. <- as.Date(Instars$Date_5th., format = "%m/%d/%Y")
+Instars$Date1_Adult <- as.Date(Instars$Date_Adult, format = "%m/%d/%Y")
+Instars$Date1_Death <- as.Date(Instars$Date_Death, format = "%m/%d/%Y")
+
+Instars$Age_3rd <- Instars$Date1_3rd - Instars$Date1_Hatch
+Instars$Age_4th <- Instars$Date1_4th - Instars$Date1_Hatch
+Instars$Age_5th <- Instars$Date1_5th - Instars$Date1_Hatch
+Instars$Age_Adult <- Instars$Date1_Adult - Instars$Date1_Hatch
+
+
+#trim out pell data
+
+Instars <- Instars[Instars$Species == "dodg",]
+
+```
+
+
+```{r}
+##### Plot time to adulthood ######
+
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+
+Give.N <- function(x){
+  return(c(y = MaxSE(x)*1.01, label = length(x))) 
+}
+
+ggplot(data = Instars, aes(x = Site, y = Age_Adult, shape = sex, linetype = sex)) +
+  rory_theme +
+  facet_wrap(~Temp+Light, nrow = 1) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")
+```
+
+
+```{r}
+
+######### Initial analysis ##################
+
+#set factors
+
+Instars$Site <- as.factor(Instars$Site)
+Instars$sex <- as.factor(Instars$sex)
+Instars$Temp <- as.factor(Instars$Temp)
+Instars$Light <- as.factor(Instars$Light)
+Instars$Female <- as.factor(Instars$Female)
+Instars$Female2 <- as.factor(paste(Instars$Female, Instars$Site, sep = "_")) #this gives each mother her own ID (now differentiating between FY1's across sites)
+
+hist(as.numeric(Instars$Age_Adult)) #not quite normal, should probably use a Poisson distribution...
+
+#note: (1|Female2) means to count this as a random effect
+
+Lmer0 <- glmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), family = poisson, na.action = 'na.omit', data = Instars)
+
+Lmer1 <- glmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 Site:Light:Temp +
+                 (1|Female2), family = poisson, na.action = 'na.omit', data = Instars)
+
+Lmer2 <- glmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 (1|Female2), family = poisson, na.action = 'na.omit', data = Instars)
+
+Lmer3 <- glmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), family = poisson, na.action = 'na.omit', data = Instars)
+
+Lmer4 <- glmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), family = poisson, na.action = 'na.omit', data = Instars)
+
+Lmer5 <- glmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light +
+                 (1|Female2), family = poisson, na.action = 'na.omit', data = Instars)
+
+aictab(list(Lmer0, Lmer1, Lmer2, Lmer3, Lmer4, Lmer5), modnames = c("Lmer0", "Lmer1", "Lmer2", "Lmer3", "Lmer4", "Lmer5"))
+#Lmer3 is by far the preferred model according to AICc
+
+summary(Lmer3)
+Anova(Lmer3, type = 3)
+Validate(Lmer3) #looks great
+#Julia: need to read about the lsmeans function
+#look at individual contrasts
+lsmeans(Lmer3, pairwise ~ Site|Temp+Light) #A1 and C1 differ from one another in HV_S, LV_L, and LV_S
+lsmeans(Lmer3, pairwise ~ Light|Temp) #Light generally has an effect in LV but not HV
+lsmeans(Lmer3, pairwise ~ Temp|Light+Site) #Temp regime had an effect under every light and site, with LV always greater than HV
+
+#plot lsmeans
+Obj1<-data.frame(summary(lsmeans(Lmer3, ~ sex*Site*Temp*Light, type = "response")))
+
+ggplot(data = Obj1, aes(y = response, x = Site, shape = sex, linetype = sex)) +
+  rory_theme +
+  facet_wrap(~Temp+Light, nrow = 1) +
+  geom_errorbar(aes(ymax = asymp.UCL, ymin = asymp.LCL), position = position_dodge(width = .6)) +
+  geom_line(aes(x = as.numeric(as.factor(Site))), size = 1.5, position = position_dodge(width = .6)) +
+  geom_point(size = 6, position = position_dodge(width = .6)) +
+  ylab("Time to adult (d, LS-means)") + xlab("Site")
+
+
+
+```
+
+```{r}
+#check lmer for singularity, no singularity with lmer, OK to assume normal?
+#NOTE: I rename it nLmer3 to distinguish from the original Lmer3. -Julia
+nLmer3 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+
+#plot predictions
+plot_model(nLmer3, type="pred", terms=c("Site","Temp","Light"), show.data=TRUE)
+```
+
+
+```{r}
+Instars %>% group_by(sex, Site, Temp, Light) %>% summarize(num_obs=n(),num_mothers=n_distinct(Female2)) %>% ungroup()
+```
+
+```{r}
+ex_cond <- Instars %>% filter(sex=="F" & Site=="B1" & Temp=="HV" & Light=="L")
+print(ex_cond$Female2)
+#so there's some redundancy in mothers within a set of conditions
+```
+
+```{r}
+Instars %>% group_by(Female2) %>% summarize(num_conds=n_distinct(Temp, Light)) %>% ungroup()
+#mothers are usually nested within a condition (so individuals in different combinations of Temp and Light don't typically have the same mother)
+#however there are a few cases when a mother can be found in 2 or 3 conditions (i.e. F38_B1)
+Instars %>% filter(Female2=="F38_B1") %>% group_by(Temp, Light) %>% summarize(n=n()) %>% ungroup()
+```
+QUESTION FOR LAUREN: It seems that neither case is met, but for future reference, which situation would mean that we didn't need to count mother as a random effect?
+-Individuals from the same mother do not occur in the same combination of conditions
+-Individuals from the same mother only occur in the same combination of conditions (do not occur across conditions)
+My understanding from the last meeting was that the issue would be if we had females contributing multiple eggs to a treatment. And that one way we could address this issue is by averaging those. And then we wouldn't have the singularity. Just to check, is this correct?
+
+
+Exploring gaussian... here I retest the different model and see which has the best AICc. It is no longer model 3. It is now the most complex model: model 0. Was I right to retest or is there an issue? See the error/warning below!
+```{r}
+nLmer0 <- lmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+nLmer1 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 Site:Light:Temp +
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+nLmer2 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+nLmer3 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+nLmer4 <- lmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+nLmer5 <- lmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light +
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+aictab(list(nLmer0, nLmer1, nLmer2, nLmer3, nLmer4, nLmer5), modnames = c("nLmer0", "nLmer1", "nLmer2", "nLmer3", "nLmer4", "nLmer5"))
+
+#nLmer0 is by far the preferred model according to AICc. It has all the weight. Is that suspicious / does it mean something's wrong?
+
+#what does the error mean?:
+# Model selection for fixed effects is only appropriate with ML estimation:
+# REML (default) should only be used to select random effects for a constant set of fixed effects
+```
+
+Now trying it with ML (so REML=FALSE for each lmer call)
+```{r}
+nLmer0 <- lmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer1 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 Site:Light:Temp +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer2 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer3 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer4 <- lmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer5 <- lmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+aictab(list(nLmer0, nLmer1, nLmer2, nLmer3, nLmer4, nLmer5), modnames = c("nLmer0", "nLmer1", "nLmer2", "nLmer3", "nLmer4", "nLmer5"))
+
+#interesting... it still has me select nLmer0.
+```
+
+NEW: Further exploring nLmer0
+```{r}
+summary(nLmer0)
+Anova(nLmer0, type = 3) #Julia: It says Wald chi-square tests are provided for fixed effects in linear and generalized linear mixed-effects models. Can't do F test unless it's fit with REML
+Validate(nLmer0)
+```
+
+```{r}
+#look at individual contrasts
+lsmeans(nLmer0, pairwise ~ Site|Temp+Light) #A is significantly different from B and C at LV_L and HV_S; at LV_S it's just significantly different from C
+lsmeans(nLmer0, pairwise ~ Light|Temp) #Light generally has an effect in LV but not HV
+lsmeans(nLmer0, pairwise ~ Temp|Light+Site) #Temp regime had an effect under every light and site, with LV always greater than HV
+```
+
+```{r}
+#crPlot(nLmer0, "Site) #ISSUE: doesn't like lmer class
+```
+
+
+Note: not sure about this code (below), actually. I found it online and should figure out exactly how it's working.
+```{r}
+d <- Instars %>% select(Age_Adult, sex, Site, Temp, Light) %>% drop_na()
+
+# Fit the model
+#fit <- lm(Sepal.Width ~ ., data = iris)
+
+# Obtain predicted and residual values
+d$predicted <- predict(nLmer0) 
+d$residuals <- residuals(nLmer0) 
+
+# Create plot
+d %>% 
+  gather(key = "iv", value = "x", -Age_Adult, -predicted, -residuals) %>%
+  ggplot(aes(x = x, y = Age_Adult)) +
+  geom_segment(aes(xend = x, yend = predicted), alpha = .2) +
+  geom_point(aes(color = residuals)) +
+  scale_color_gradient2(low = "blue", mid = "white", high = "red") +
+  guides(color = FALSE) +
+  geom_point(aes(y = predicted), shape = 1) +
+  facet_grid(~ iv, scales = "free_x") +
+  theme_bw()
+```
+```{r}
+plot_model(Lmer0, type="pred", terms=c("Site","Temp","Light", "sex"), show.data=TRUE)
+```
+
+
+
+
+```{r}
+d <- Instars %>% select(Age_Adult, sex, Site, Temp, Light, Female2) %>% drop_na() #dropped all NAs in advance to deal na.omit / na.fail issues
+dat <- Instars
+fm1 <- lmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), REML=FALSE, data = d)
+dd <- dredge(fm1)
+subset(dd, delta < 4)
+
+#dredge says the best model is the most complex
+```
+
+
+END OF NEW
+
+For curiousity: What happens when we compare models from poisson and gaussian? This code doesn't work bc "Functions do not support mixture of model classes"
+```{r}
+# aictab(list(nLmer0, nLmer1, nLmer2, nLmer3, nLmer4, nLmer5, Lmer0, Lmer1, Lmer2, Lmer3, Lmer4, Lmer5), modnames = c("nLmer0", "nLmer1", "nLmer2", "nLmer3", "nLmer4", "nLmer5", "Lmer0", "Lmer1", "Lmer2", "Lmer3", "Lmer4", "Lmer5"))
+```
+
+Exploring current Lmer3 (poisson) more 
+Same code
+```{r}
+summary(Lmer3)
+Anova(Lmer3, type = 3)
+Validate(Lmer3) #looks great
+#Julia: need to read about the lsmeans function
+#look at individual contrasts
+lsmeans(Lmer3, pairwise ~ Site|Temp+Light) #A1 and C1 differ from one another in HV_S, LV_L, and LV_S
+lsmeans(Lmer3, pairwise ~ Light|Temp) #Light generally has an effect in LV but not HV
+lsmeans(Lmer3, pairwise ~ Temp|Light+Site) #Temp regime had an effect under every light and site, with LV always greater than HV
+
+#plot lsmeans
+Obj1<-data.frame(summary(lsmeans(Lmer3, ~ sex*Site*Temp*Light, type = "response")))
+
+ggplot(data = Obj1, aes(y = response, x = Site, shape = sex, linetype = sex)) +
+  rory_theme +
+  facet_wrap(~Temp+Light, nrow = 1) +
+  geom_errorbar(aes(ymax = asymp.UCL, ymin = asymp.LCL), position = position_dodge(width = .6)) +
+  geom_line(aes(x = as.numeric(as.factor(Site))), size = 1.5, position = position_dodge(width = .6)) +
+  geom_point(size = 6, position = position_dodge(width = .6)) +
+  ylab("Time to adult (d, LS-means)") + xlab("Site")
+
+
+#check lmer for singularity, no singularity with lmer, OK to assume normal?
+Lmer3 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', data = Instars)
+
+
+#plot predictions
+plot_model(Lmer3, type="pred", terms=c("Site","Temp","Light"), show.data=TRUE)
+```
+
+
+
+```{r}
+Anova(nLmer0, type = 3)
+```
+```{r}
+Anova(Lmer0, type = 3)
+```
+
+```{r}
+coefficients(Lmer3)
+```
+
