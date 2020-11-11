@@ -1,5 +1,6 @@
+#==================
 #DEVELOPMENT PLOT
-
+#load and process data in Growth Develoment.R
 #try ordered factor
 #Instars$Site= factor(Instars$Site, ordered=FALSE, levels=c("A1","B1","C1") )
 
@@ -54,6 +55,31 @@ ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp)) +
   ylab("Time to adult (d)") + xlab("Site")+scale_color_viridis_d()
 
 #==================
+#Survival
+
+Instars$Survive <- ifelse(is.na(Instars$Age_Adult) == TRUE, 0, 1)
+
+ggplot(data = Instars, aes(x = Site, y = Survive, color = Temp)) +
+  rory_theme +
+  facet_wrap(~sex+Light, nrow = 1) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Survival (%)") + xlab("Site")+scale_color_viridis_d()
+
+mod.surv <- lmer(Survive ~ sex * Site * Temp * Light + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+Anova(mod.surv, type = 3)
+summary(mod.surv)
+
+MS0 <- glmmPQL(Survive ~ sex * Site * Temp * Light, 
+               random = (~ 1|Female2), 
+               family = binomial, data = Instars, niter = 100)
+
+Anova(MS0, type = 3)
+
+#==================
 #MASS
 
 #didn't go through model selection, but may make sense to use full model
@@ -83,5 +109,86 @@ ggplot(data = Instars, aes(x = Site, y = Mass_Adult, color=Temp)) +
 # appears to be a strong sex effect (duh), and a trend for high-elevation to be smaller
 
 #==================
+#Shape
+
+#femur length
+ggplot(data = Instars, aes(x = Site, y = Femur_Adult, color=Temp)) +
+  rory_theme +
+  facet_wrap(~sex+Light, nrow = 1) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Femur length (mm)") + xlab("Site")
+
+#Pronotum_Adult length
+ggplot(data = Instars, aes(x = Site, y = Pronotum_Adult, color=Temp)) +
+  rory_theme +
+  facet_wrap(~sex+Light, nrow = 1) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Femur length (mm)") + xlab("Site")
+
+#------
+#DROP PC ANALYSIS?
+#PC analysis
+AdultsOnly <- Instars[is.na(Instars$Femur_Adult) == FALSE, ]
+AdultsOnly <- AdultsOnly[is.na(AdultsOnly$sex) == FALSE, ]
+
+TS <- paste(AdultsOnly$Temp, AdultsOnly$Light, AdultsOnly$sex, AdultsOnly$Site, sep = "_")
+
+Shape <- cbind(AdultsOnly$Mass_Adult^1/3, AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult)
+
+#run the PCA
+pca1 <- prcomp(Shape, scale. = TRUE)  #uses SVD for computations (mean-centered is default), scaled transforms data to unit variance
+PC.scores1<-data.frame(pca1$x)
+
+#Calculate means and se of PC1 and PC2 for plotting
+PC1_mean <- unlist(tapply(PC.scores1[, "PC1"], TS, mean))
+PC2_mean <- unlist(tapply(PC.scores1[, "PC2"], TS, mean))
+PC1_se <- unlist(tapply(PC.scores1[, "PC1"], TS, std.error))
+PC2_se <- unlist(tapply(PC.scores1[, "PC2"], TS, std.error))
+T_L_Sex_Site <- rownames(PC1_mean)  
+
+# Data frame for the means and errors
+PCmeans <- data.frame(T_L_Sex_Site, PC1_mean, PC2_mean, PC1_se, PC2_se)
+PCLabels <- str_split_fixed(PCmeans[,1], "_", n = 4) #collect Temp and Light treatments
+PCmeans$Temp <- PCLabels[,1]
+PCmeans$Light <- PCLabels[,2]
+PCmeans$Sex <- PCLabels[,3]
+PCmeans$Site <- PCLabels[,4]
+
+error_PC1 <- aes(xmax = PC1_mean + (2*PC1_se), xmin= PC1_mean - (2*PC1_se)) #95% CI
+error_PC2 <- aes(ymax = PC2_mean + (2*PC2_se), ymin= PC2_mean - (2*PC2_se)) #95% CI
+
+#PC limits
+PC1_lim <- max(abs(PC.scores1[,"PC1"]))
+PC2_lim <- max(abs(PC.scores1[,"PC2"]))
+PC_lim <- max(c(PC1_lim, PC2_lim))
+
+#reduced dataframe for scatterplot
+ScatDat <- data.frame(PC.scores1[, "PC1"], PC.scores1[, "PC2"])
+
+#PC plot
+ggplot(data = PCmeans, aes(x = PC1_mean, y = PC2_mean, col = Site, shape = Sex)) +
+  facet_wrap(~Temp+Light, nrow = 2) +
+  rory_theme +
+  geom_vline(xintercept = 0, linetype = 2) +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_errorbar(error_PC2, size = 1, width = 0) +
+  geom_errorbarh(error_PC1, size = 1, height = 0) +
+  geom_point(size = 8) +
+  xlab("PC1") + ylab("PC2") +
+  ylim(-PC_lim, PC_lim) + xlim(-PC_lim, PC_lim) +
+  #scale_color_manual(values = c(Color1, Color2)) +
+  scale_shape_manual(values = c(1, 19)) #+
+#scale_fill_manual(values = c(Color1,Color2,"white","white")) +
+#geom_point(data = ScatDat, aes(x = PC.scores1...xPC., y = PC.scores1...yPC.), col = colo1, shape = symb1, fill = bg1, size = 4) +
+#theme(legend.position = Pos)#
+
+
+
+
+
 
 
