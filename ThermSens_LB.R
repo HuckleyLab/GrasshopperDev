@@ -52,6 +52,14 @@ PBT= subset(PBT, PBT$Sex %in% c("M","F"))
 #upload CT data
 CT <- read.csv(file = "CT_Data_2016.csv", header = TRUE, stringsAsFactors = FALSE)
 
+#add sex and other info
+CT <- merge(CT, SexData, by.x =  colnames(CT)[1], by.y = colnames(SexData)[1])
+colnames(CT)[ncol(CT)] <- "Sex"
+CT$Sex <- ifelse(CT$Sex == "", NA, CT$Sex)
+
+#Drop cases with no sex
+CT= subset(CT, CT$Sex %in% c("M","F"))
+
 #=========================================
 # PLOTS
 
@@ -66,7 +74,7 @@ Give.N <- function(x){
 
 ggplot(data = PBT, aes(x = Site, y = Tb_Mean, color = Temp)) +
   rory_theme +
-  facet_wrap(~Sex+Light, nrow = 1) +
+  facet_wrap(Sex~Light, nrow = 1) +
   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
@@ -89,7 +97,7 @@ LmerPBT.0 <- lmer(value ~ Sex * Site * Temp * Light +
 
 LmerPBT.6 <- lmer(value ~ Sex + Site + Temp + Light + 
                     (1|Individual), na.action = 'na.omit', 
-                  #REML = FALSE, 
+                  REML = FALSE, 
                   data = PBT_Long)
 
 aictab(list(LmerPBT.0, LmerPBT.6), modnames = c("LmerPBT.0","LmerPBT.6"))
@@ -101,7 +109,39 @@ lsmeans(LmerPBT.6, pairwise ~ Site|Temp+Light) #Sites never significantly differ
 lsmeans(LmerPBT.6, pairwise ~ Light|Temp) #L and S differ in LV only
 lsmeans(LmerPBT.6, pairwise ~ Temp|Light) #HV and LV differ, only in long days and primarilly for C1
 
+#------------------------------
 #CT
+ggplot(data = CT, aes(x = Site, y = CT_min, color = Temp)) +
+  rory_theme +
+  facet_wrap(Sex~Light, nrow = 1) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("CTmin (C)") + xlab("Site")+scale_color_viridis_d()
 
+ggplot(data = CT, aes(x = Site, y = CT_max, color = Temp)) +
+  rory_theme +
+  facet_wrap(Sex~Light, nrow = 1) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("CTmax (C)") + xlab("Site")+scale_color_viridis_d()
+
+#Analyses
+#Check random effect
+mod1= lm(CT_min ~ Sex * Site * Temp * Light, data=CT)
+mod1= lm(CT_max ~ Sex * Site * Temp * Light, data=CT)
+anova(mod1)
+
+LmerCT.0 <- lmer(CT_min ~ Sex * Site * Temp * Light + 
+                   (1|Individual), na.action = 'na.omit', 
+                 REML = FALSE, 
+                 data = CT) 
+
+
+LmerCT.0 <- lmer(CT_max ~ Sex * Site * Temp * Light + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = CT) 
 
 
