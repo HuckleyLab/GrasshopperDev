@@ -359,3 +359,4 @@ Anova(Lmer0, type = 3)
 coefficients(Lmer3)
 ```
 
+
