@@ -112,7 +112,7 @@ lsmeans(LmerPBT.6, pairwise ~ Temp|Light) #HV and LV differ, only in long days a
 #------------------------------
 #CT
 ggplot(data = CT, aes(x = Site, y = CT_min, color = Temp)) +
-  rory_theme +
+  #rory_theme +
   facet_wrap(Sex~Light, nrow = 1) +
   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
@@ -133,15 +133,110 @@ mod1= lm(CT_min ~ Sex * Site * Temp * Light, data=CT)
 mod1= lm(CT_max ~ Sex * Site * Temp * Light, data=CT)
 anova(mod1)
 
+CT <- CT %>% mutate(Female=sub("\\..*", "", Individual)) #Individuals only show up in one row. But I'm deducing that the start of the individual's name (before the period) is the mother
+
 LmerCT.0 <- lmer(CT_min ~ Sex * Site * Temp * Light + 
-                   (1|Individual), na.action = 'na.omit', 
+                   (1|Female), na.action = 'na.omit', 
                  REML = FALSE, 
                  data = CT) 
 
 
 LmerCT.0 <- lmer(CT_max ~ Sex * Site * Temp * Light + 
-                    (1|Individual), na.action = 'na.omit', 
+                    (1|Female), na.action = 'na.omit', 
                   REML = FALSE, 
                   data = CT) 
 
+LmerCT.1 <- lmer(CT_min ~ Sex + Site + Temp + Light + 
+                   (1|Female), na.action = 'na.omit', 
+                 REML = FALSE, 
+                 data = CT) 
 
+LmerCT.1 <- lmer(CT_max ~ Sex + Site + Temp + Light + 
+                   (1|Female), na.action = 'na.omit', 
+                 REML = FALSE, 
+                 data = CT) 
+
+####
+LmerCT.0 <- lmer(as.numeric(CT_max) ~ Sex * Site * Temp * Light + 
+                 (1|Female), 
+               REML = FALSE,
+               na.action = 'na.omit', data = CT)
+
+LmerCT.1 <- lmer(as.numeric(CT_max) ~ Sex + Site + Temp + Light + 
+                 Sex:Site + Sex:Temp + Sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 Site:Light:Temp +
+                 (1|Female), 
+               REML = FALSE, 
+               na.action = 'na.omit', data = CT) #boundary (singular) fit: see ?isSingular
+
+LmerCT.2 <- lmer(as.numeric(CT_max) ~ Sex + Site + Temp + Light + 
+                 Sex:Site + Sex:Temp + Sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 (1|Female), 
+               REML = FALSE,
+               na.action = 'na.omit', data = CT)
+
+LmerCT.3 <- lmer(as.numeric(CT_max) ~ Sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female), 
+               REML = FALSE,
+               na.action = 'na.omit', data = CT) #boundary (singular) fit: see ?isSingular
+
+#no singular fit!
+LmerCT.4 <- lmer(as.numeric(CT_max) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female), 
+               REML = FALSE, 
+               na.action = 'na.omit', data = CT) 
+
+#singular fit
+LmerCT.5 <- lmer(as.numeric(CT_max) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light +
+                 (1|Female), 
+               REML = FALSE,
+               na.action = 'na.omit', data = CT)
+
+### Exploring further (looking for options w/o singular fit)
+
+#no singular fit!
+LmerCTmax.4 <- lmer(as.numeric(CT_max) ~ Site + Temp + Light + 
+                   Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                   (1|Female), 
+                 REML = FALSE, 
+                 na.action = 'na.omit', data = CT) 
+
+#same model but gets singular fit
+LmerCTmin.4 <- lmer(as.numeric(CT_min) ~ Site + Temp + Light + 
+                      Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                      (1|Female), 
+                    REML = FALSE, 
+                    na.action = 'na.omit', data = CT) 
+
+#singular fit
+LmerCTmax.6 <- lmer(as.numeric(CT_max) ~ Site + Temp + Light + 
+                      Site:Temp + Site:Light + Temp:Light +
+                      (1|Female), 
+                    REML = FALSE, 
+                    na.action = 'na.omit', data = CT) 
+
+LmerCTmin.6 <- lmer(as.numeric(CT_max) ~ Site + Temp + Light + 
+                      Site:Temp + Site:Light + Temp:Light  +
+                      (1|Female), 
+                    REML = FALSE, 
+                    na.action = 'na.omit', data = CT)
+
+LmerCTmax.7 <- lmer(as.numeric(CT_max) ~ Site + Temp + Light + 
+                      (1|Female), 
+                    REML = FALSE, 
+                    na.action = 'na.omit', data = CT) 
+
+LmerCTmin.7 <- lmer(as.numeric(CT_max) ~ Site + Temp + Light +
+                      (1|Female), 
+                    REML = FALSE, 
+                    na.action = 'na.omit', data = CT)
+
+#ok so only #4 works so far
+#####
+
+Anova(LmerCTmax.4, type=3) 
+Anova(LmerCTmin.4, type=3) 
+#nothing is significant
