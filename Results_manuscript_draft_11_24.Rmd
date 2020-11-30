@@ -1,9 +1,8 @@
 ---
-title: "Results_manuscript_draft_11_24"
+title: "Results manuscript Draft"
 output: html_document
 ---
 
-Sorry -- it's not the neatest
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -28,6 +27,7 @@ library(sjPlot) #for plot_new
 library(tidyverse)
 library(knitr)
 library(afex)
+library(RColorBrewer)
 
 #webshot::install_phantomjs()
 library(kableExtra)
@@ -81,6 +81,37 @@ Instars$Female2 <- as.factor(paste(Instars$Female, Instars$Site, sep = "_")) #th
 ### Maturation Rate
 #### Time to adulthood
 
+
+```{r, include=FALSE}
+nLmer0 <- lmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer1 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 Site:Light:Temp +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer2 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer3 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer4 <- lmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer5 <- lmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+#aictab(list(nLmer0, nLmer1, nLmer2, nLmer3, nLmer4, nLmer5), modnames = c("nLmer0", "nLmer1", "nLmer2", "nLmer3", "nLmer4", "nLmer5"))
+
+#best is nLmer0
+```
+
 For analyses, we used the lmer function from Lme4 library to model the effects of sex, site, temperature regime, and light regime on age of adulthood, assuming a normal distribution. We included the identity of the grasshopper's mother as a random effect. We assessed several models and the preferred model (ΔAICc > 10) included the main effects of all 4 variables, as well as all of their higher order interactions.  
 
 Figure 1
@@ -116,8 +147,7 @@ ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp)) +
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
   ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temp var", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
 ```
-Figure 1 (caption). Generally, high temperature variance leads to faster development and males develop faster than females. The effect of long photoperiod varies depending on other factors. For example, at high temperature variance in males, long photoperiod is associated with faster development times, but it generally slows development times at low temperature variance.
-High temperature variance (color) leads to faster development and males develop faster than females (rows) across sites. Daylength (columns) interacts with temperature to determine development rates. 
+Figure 1 (caption). High temperature variance (color) leads to faster development, and males develop faster than females (rows) across sites (y-axis). Daylength (columns) interacts with temperature to determine development rates. 
 
 Table 1
 ```{r, echo=FALSE}
@@ -143,25 +173,68 @@ kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escap
 
 ```
 
-We found that grasshoppers developed faster at high temperature variance (X[1,df]=444, p<.001) and long photoperiod (p<.05), and males developed faster than females (p<.05, Table 1). Site alone did not have a significant effect, but grasshoppers from the highest elevation site (3048m) did appear to develop faster except for females in a long photoperiod environment. Long days sped up development for males in environments with high temperature variance, but not for females in those environments. However, long days delayed development for grasshoppers in low temperature variance environments (Table 1, Figure 1, see Table S1 for coefficients and Figure S1 for model plots). 
+We found that grasshoppers developed faster at high temperature variance ($\chi$^2^~1~=66.849, p<.001) and long photoperiod ($\chi$^2^~1~=6.431, p<.05), and males developed faster than females ($\chi$^2^~1~=6.405, p<.05, Table 1). Site alone did not have a significant effect, but grasshoppers from the highest elevation site (3048m) did appear to develop faster except for females in a long photoperiod environment. Long days sped up development for males in environments with high temperature variance, but not for females in those environments. However, long days delayed development for grasshoppers in low temperature variance environments (Table 1, Figure 1, see Table S1 for coefficients and Figures S1-S3 for model plots). 
+
+Supplements
+
+Table S1
+```{r, echo=FALSE}
+s <- summary(nLmer0)
+kable(s[["coefficients"]], digits=3, format="html") %>% kable_styling()
+```
+
+Fig S1
+```{r, echo=FALSE}
+#Corresponding supplementary figures (put here for reference -- can move to bottom later)
+
+#plotting marginal effects
+
+# 4 way interaction
+plot_model(nLmer0,type="pred",terms=c("Site","Tempvar","Daylength","Sex"),show.data=FALSE)
+
+
+```
+Fig S2
+```{r, echo=FALSE}
+# main effects
+p1 <- plot_model(nLmer0, type="pred", terms=c("Sex"), show.data=FALSE)
+p2 <- plot_model(nLmer0, type="pred", terms=c("Tempvar"), show.data=FALSE)
+p3 <- plot_model(nLmer0, type="pred", terms=c("Daylength"), show.data=FALSE)
+p4 <- plot_model(nLmer0, type="pred", terms=c("Site"), show.data=FALSE) #not significant just taking a look
+
+grid.arrange(p1, p2, p3, p4, nrow=2)
+```
+
+Fig S3
+```{r, echo=FALSE}
+p1 <- plot_model(nLmer0, type="pred", terms=c("Site", "Tempvar"), show.data=FALSE)
+p2 <- plot_model(nLmer0, type="pred", terms=c("Site", "Daylength"), show.data=FALSE)
+p3 <- plot_model(nLmer0, type="pred", terms=c("Sex", "Tempvar"), show.data=FALSE)
+p4 <- plot_model(nLmer0, type="pred", terms=c("Tempvar", "Daylength"), show.data=FALSE)
+
+grid.arrange(p1, p2, p3, p4, nrow=2)
+```
+
 
 #### Time to each instar
 
-[Talking about model selection here (sort of)]
-
-```{r, echo=FALSE}
+```{r, echo=FALSE, include=FALSE}
 Instars_Adult <- Instars[is.na(Instars$Age_Adult) == FALSE,]
 Instars_Adult_Long <- melt(Instars_Adult[,c(1:8,50:54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "sex", "Temp", "Light")) #tracks the time (value) when each individual reached each instar (variable)
 
-#I changed the nesting from what Rory had ((1|Individual/variable/Female2)). lmer gave me an error with that nesting. I referred to this source (particularly this example: leafLength ~ treatment + (1|Bed/Plant/Leaf) + (1|Season)) , but I'm not entirely sure that I'm right.
+#I changed the nesting from what Rory had ((1|Individual/variable/Female2)). lmer gave me an error with that nesting. I referred to this source (particularly this example: leafLength ~ treatment + (1|Bed/Plant/Leaf) + (1|Season)) , but I'm not entirely sure that I'm right. https://ourcodingclub.github.io/tutorials/mixed-models/ 
 
-#variable should be nested within female
+#Lauren said: variable should be nested within female. 
+#I am confused again! Variable definitely needs to go somewhere because value without variable makes very little sense (the time of arrival without the instar at which the grasshopper arrived at that time). Now I'm wondering if variable should be a fixed effect. Like are we interested to know if instar interacts with sex/site/temp/light? Aside from eyeballing the graph, would we know if it did unless we made it a fixed effect?
+#I also don't understand why variable should be nested within female. I know it can't be nested within Individual (which is nested within female) because the nesting appears to work the other way (i.e. every individual has just one 3rd instar measurement). Most things I've googled about repeated measurments in mixed models have involved treating time as a fixed effect (I get that here it's stage and not time since time is our y)
+
+#I've left it as I had it before for now and tried to write it up, but we will probably want to revisit this!
  
 # Lmer0.1 <- lmer(as.numeric(value) ~ sex * Site * Temp * Light + 
-#                    (1|Female2/Individual/variable), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long) 
+#                     (1|Female2/Individual/variable), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)  #doesn't run
 
 Lmer0.1 <- lmer(as.numeric(value) ~ sex * Site * Temp * Light + 
-                   (1|Female2/Individual)+ (1|variable), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long) 
+                   (1|Female2/Individual)+(1|variable), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long) 
 
 Lmer1.1 <- lmer(as.numeric(value) ~ sex + Site + Temp + Light + 
                    sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
@@ -184,17 +257,18 @@ Lmer5.1 <- lmer(as.numeric(value) ~ Site + Temp + Light +
                    Site:Temp + Site:Light + Temp:Light +
                    (1|Female2/Individual)+ (1|variable), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
 
-aictab(list(Lmer0.1, Lmer1.1, Lmer2.1, Lmer3.1, Lmer4.1, Lmer5.1), modnames = c("Lmer0.1", "Lmer1.1", "Lmer2.1", "Lmer3.1", "Lmer4.1", "Lmer5.1"))
+#aictab(list(Lmer0.1, Lmer1.1, Lmer2.1, Lmer3.1, Lmer4.1, Lmer5.1), modnames = c("Lmer0.1", "Lmer1.1", "Lmer2.1", "Lmer3.1", "Lmer4.1", "Lmer5.1"))
 #I get 4.1 but it's quite close to other models. 0.1 (the most complex) is last! 4.1 is all combinations excluding sex (main effect and all interactions)
 
-summary(Lmer4.1)
-Anova(Lmer4.1)
+#top 3 are close to one another. Most complex (0.1) is last. We decided to still go with 0.1, I think.
 
 ```
 
+We applied a model with the same interaction terms to determine the age upon arrival at each instar (rather than simply age at adulthood). [NOTE: Check the random effects!] Our random effects were the identity of the individual (since we were measuring the same individual's time to each instar) -- nested within that individual's mother -- and the instar that we were measuring. We tested other models, and the first three models (none of which were the model we chose) were too close to one another in terms of AICc to resolve (ΔAICc<2). Despite the most complex model having less support than others according to the AICc, in this case we selected it in order to be consistent with the choice we made when modeling time to adulthood.
+
 
 Figure 2
-```{r, warning=FALSE, message=FALSE}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 #silenced a warning... go back and check
 
 levels(Instars_Adult_Long$variable) <- c("3rd", "4th", "5th", "Adult")
@@ -208,25 +282,35 @@ ggplot(data = Instars_Adult_Long, aes(x = variable, y = value, col = Site)) +
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
   ylab("Time (d)") + xlab("Instar")
 ```
-Figure 2 (caption). Effects of sex, daylight, temperature variance, and site appear to be similar for the timing of arrival at each instar.
+Figure 2 (caption). Effects of sex (columns), daylight(columns), temperature variance (rows), and site (color) appear to be similar for the timing of arrival at each instar. 
+
+Table 2
+```{r, echo=FALSE}
+Instars_Adult_Long_names <- Instars_Adult_Long %>% mutate(Sex=sex, Tempvar=Temp, Daylength=Light) #didn't seem to work as I wanted
+
+Instars_Adult_Long_names$Site <- recode(Instars_Adult_Long_names$Site, A1 = "2195m", B1="2591m", C1="3048m")
+
+
+Lmer0.1 <- lmer(as.numeric(value) ~ sex * Site * Temp * Light +                   (1|Female2/Individual)+(1|variable), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long_names) 
+
+
+a <- Anova(Lmer0.1, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling()
+```
+[[Probably need to write about this (assuming this is the model we stick with)! Which effects are significant has changed from time to adult. Will try to do later.]]
+
 
 ### Body Mass
 
-Discussion of model selection
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 
-Figure 3
-```{r}
-ggplot(data = Instars, aes(x = Site, y = as.numeric(Mass_Adult), color = Temp)) +
-#  rory_theme +
-  facet_grid(sex~Light, labeller=labeller(sex = sex.labs, Light = Light.labs)) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
-  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
-  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("Mass as adult (g)") + xlab("Site")+scale_color_manual(name="Temp var", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
-```
-Figure 3 (caption). Males have smaller body mass. High temperature variance leads to higher mass, especially in females. [OK so the tables say that Temp alone has an effect, but it kind of looks like it’s only in females… is this a poor model?]
-
-```{r, echo=FALSE}
 #Analysis
 LmerM0 <- lmer(as.numeric(Mass_Adult) ~ sex * Site * Temp * Light + 
                  (1|Female2), 
@@ -264,16 +348,42 @@ LmerM5 <- lmer(as.numeric(Mass_Adult) ~ Site + Temp + Light +
                REML = FALSE,
                na.action = 'na.omit', data = Instars) #boundary (singular) fit: see ?isSingular
 
-aictab(list(LmerM0, LmerM1, LmerM2, LmerM3, LmerM4, LmerM5), modnames = c("LmerM0", "LmerM1", "LmerM2", "LmerM3", "LmerM4", "LmerM5"))
+#aictab(list(LmerM0, LmerM1, LmerM2, LmerM3, LmerM4, LmerM5), modnames = c("LmerM0", "LmerM1", "LmerM2", "LmerM3", "LmerM4", "LmerM5"))
 
-#M2 is preferred, followed closely by M3 and M1
+#M2 is preferred, followed closely by M3 and M1... we decided to go with M0
+#(see singular issues for many other models... all but M2 and M0)
 
 
 ```
 
+We once again used the full model, although it did not have the highest AICc, so that we could easily draw comparisons to our development models (age at adult and age at each instar).
 
-Table 2
-```{r}
+Figure 3
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(data = Instars, aes(x = Site, y = as.numeric(Mass_Adult), color = Temp)) +
+#  rory_theme +
+  facet_grid(sex~Light, labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Mass as adult (g)") + xlab("Site")+scale_color_manual(name="Temp var", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
+Figure 3 (caption). Adult males have smaller body mass (rows). Low temperature variance (color) at higher elevation sites (y-axis) leads to lower mass in females. Photoperiod (columns) has no significant effect.
+
+
+
+
+Table 3
+```{r, echo=FALSE}
+Instars_names <- Instars %>% mutate(Sex=sex, Tempvar=Temp, Daylength=Light) #didn't seem to work as I wanted
+
+Instars_names$Site <- recode(Instars_names$Site, A1 = "2195m", B1="2591m", C1="3048m")
+
+LmerM0 <- lmer(as.numeric(Mass_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars_names)
+
 a <- Anova(LmerM0, type=3)
 a$Significance <- "   "
 a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
@@ -284,6 +394,45 @@ a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
 kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("adultanova.png")
 ```
+Unsurprisingly, we found that females have a significantly higher adult mass than males ($\chi$^2^~1~=56.295, p<.001, Table 3). At higher elevation sites, low temperature variance leads to significantly lower mass in females ($\chi$^2^~2~=6.020, p<.001). [NOTE: The temp:site trend alone is significant, but I'm not really seeing it for males so I'm confused if/how I should report/discuss this.] (Table 3, Figure 3, see Table S2 for coefficients and Figures S4-S6 for model plots)
+
+
+Supplements
+
+Table S2
+```{r, echo=FALSE}
+s <- summary(LmerM0)
+kable(s[["coefficients"]], digits=3, format="html") %>% kable_styling()
+```
+
+Fig S4
+```{r, echo=FALSE}
+
+
+#plotting marginal effects
+
+#3-way interaction
+plot_model(LmerM0,type="pred",terms=c("Site", "Temp","Light"),show.data=FALSE)
+
+#Not overall significant according to ANOVA table, but is according to coefficient table (comparing 3048m to 2195m)
+#might get rid of this plot -- not sure
+
+```
+S5
+```{r, echo=FALSE}
+plot_model(LmerM0,type="pred",terms=c("Site", "Temp","sex"),show.data=FALSE)
+#possibly this is the only one I'll keep.
+
+#surprised that the second-order temp:site is significant... it seems to really only be due to females. Perhaps I am not the best at parsing this?
+```
+S6
+```{r, echo=FALSE}
+plot_model(LmerM0,type="pred",terms=c("Site", "Temp"),show.data=FALSE)
+
+#is this just showing me the female panel? It looks very similar
+```
+
+[NOTE: Still need to do mass by instar... will have that plot and hopefully analysis for tomorrow]
 
 ### Preferred body temperature
 
@@ -339,30 +488,6 @@ PBT$Tb_sd <- apply(TB_df, 1, sd, na.rm = TRUE)
 
 PBT$Treat <- paste(PBT$Temp, PBT$Light, sep = "_")
 table(PBT[,c(26,27,31)]) #results collated in google drive file "Performance Sample Sizes"
-```
-
-
-[Some text here]
-
-Figure 4
-```{r}
-#plot based on individual means
-MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
-MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
-
-Give.N <- function(x){
-  return(c(y = MaxSE(x)*1.01, label = length(x))) 
-}
-
-
-ggplot(data = PBT %>% filter(!is.na(Sex)), aes(x = Site, y = Tb_Mean, color = Temp)) +
-#  rory_theme +
-  facet_grid(Sex~Light, labeller=labeller(sex = sex.labs, Light = Light.labs)) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
-  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
-  stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 4) +
-  ylab("Mean PBT (C)") + xlab("Site")+scale_color_manual(name="Temp var", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
-
 ```
 
 ```{r, echo=FALSE}
@@ -429,7 +554,32 @@ aictab(list(LmerPBT.0, LmerPBT.1, LmerPBT.2, LmerPBT.3, LmerPBT.4, LmerPBT.5, Lm
 
 ```
 
-```{r}
+The best model (ΔAICc >5)for preferred body temperature was one of just the main fixed effects (sex, site, temperature regime, and light regime) and the random effect of individual (for repeated measures of the same grasshopper). It makes sense that a relatively simple model was selected given that none of these effects were significant predictors of preferred body temperature.
+
+Figure 4
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+
+Give.N <- function(x){
+  return(c(y = MaxSE(x)*1.01, label = length(x))) 
+}
+
+
+ggplot(data = PBT %>% filter(!is.na(Sex)), aes(x = Site, y = Tb_Mean, color = Temp)) +
+#  rory_theme +
+  facet_grid(Sex~Light, labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 4) +
+  ylab("Mean PBT (C)") + xlab("Site")+scale_color_manual(name="Temp var", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+
+```
+Mean preferred body temperature of lab-reared male and female (rows) grasshoppers whose mothers came from different sites (y-axis). Photoperiod (columns) and temperature variance (rows) were varied. The numbers represent sample sizes.
+
+Table 4
+```{r, echo=FALSE}
 a <- Anova(LmerPBT.6, type=3)
 a$Significance <- "   "
 a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
@@ -441,80 +591,92 @@ options(knitr.kable.NA = '')
 kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("adultanova.png")
 ```
 
-```{r}
-lsmeans(LmerPBT.6, pairwise ~ Site|Temp+Light) #Sites never significantly differ from one another
-lsmeans(LmerPBT.6, pairwise ~ Light|Temp) #L and S differ in LV only
-lsmeans(LmerPBT.6, pairwise ~ Temp|Light) #HV and LV differ, only in long days and primarilly for C1
+None of the main effects were significant. There are arguably trends towards low temperature variance and long photoperiod decreasing preferred temperature ($\chi$^2^~1~=3.049, p=.0808; $\chi$^2^~1~=3.120, p=.0773, Table 4)
+
+```{r, include=FALSE}
+#I selected the prefered model which did not have these interactions so not sure whether to explore this or not
+
+# lsmeans(LmerPBT.6, pairwise ~ Site|Temp+Light) #Sites never significantly differ from one another
+# lsmeans(LmerPBT.6, pairwise ~ Light|Temp) #L and S differ in LV only
+# lsmeans(LmerPBT.6, pairwise ~ Temp|Light) #HV and LV differ, only in long days and primarily for C1
 ```
+
+Supplement
+S4
+```{r, echo=FALSE}
+s <- summary(LmerPBT.6)
+kable(s[["coefficients"]], digits=3, format="html") %>% kable_styling()
+```
+
 
 
 ### CTmin and CTmax
+[There was an issue stopping it from running... coming later]
+<!-- CTmin (will reformat) -->
+<!-- ```{r} -->
+<!-- #CT -->
+<!-- ggplot(data = CT, aes(x = Site, y = CT_min, color = Temp)) + -->
+<!--   #rory_theme + -->
+<!--   facet_wrap(Sex~Light, nrow = 1) + -->
+<!--   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) + -->
+<!--   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) + -->
+<!--   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) + -->
+<!--   ylab("CTmin (C)") + xlab("Site")+scale_color_viridis_d() -->
 
-CTmin (will reformat)
-```{r}
-#CT
-ggplot(data = CT, aes(x = Site, y = CT_min, color = Temp)) +
-  #rory_theme +
-  facet_wrap(Sex~Light, nrow = 1) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
-  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
-  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("CTmin (C)") + xlab("Site")+scale_color_viridis_d()
+<!-- ``` -->
 
-```
+<!-- CTmax (will reformat) -->
+<!-- ```{r} -->
+<!-- ggplot(data = CT, aes(x = Site, y = CT_max, color = Temp)) + -->
+<!--   rory_theme + -->
+<!--   facet_wrap(Sex~Light, nrow = 1) + -->
+<!--   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) + -->
+<!--   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) + -->
+<!--   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) + -->
+<!--   ylab("CTmax (C)") + xlab("Site")+scale_color_viridis_d() -->
+<!-- ``` -->
 
-CTmax (will reformat)
-```{r}
-ggplot(data = CT, aes(x = Site, y = CT_max, color = Temp)) +
-  rory_theme +
-  facet_wrap(Sex~Light, nrow = 1) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
-  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
-  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("CTmax (C)") + xlab("Site")+scale_color_viridis_d()
-```
+<!-- ```{r} -->
+<!-- #singular fit for CTmin :( -->
 
-```{r}
-#singular fit for CTmin :(
+<!-- CT <- CT %>% mutate(Female=sub("\\..*", "", Individual)) #Individuals only show up in one row. But I'm deducing that the start of the individual's name (before the period) is the mother -->
 
-CT <- CT %>% mutate(Female=sub("\\..*", "", Individual)) #Individuals only show up in one row. But I'm deducing that the start of the individual's name (before the period) is the mother
+<!-- LmerCTmax.4 <- lmer(as.numeric(CT_max) ~ Site + Temp + Light +  -->
+<!--                    Site:Temp + Site:Light + Temp:Light + Site:Temp:Light + -->
+<!--                    (1|Female),  -->
+<!--                  REML = FALSE,  -->
+<!--                  na.action = 'na.omit', data = CT)  -->
 
-LmerCTmax.4 <- lmer(as.numeric(CT_max) ~ Site + Temp + Light + 
-                   Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
-                   (1|Female), 
-                 REML = FALSE, 
-                 na.action = 'na.omit', data = CT) 
+<!-- LmerCTmin.4 <- lmer(as.numeric(CT_min) ~ Site + Temp + Light +  -->
+<!--                       Site:Temp + Site:Light + Temp:Light + Site:Temp:Light + -->
+<!--                       (1|Female),  -->
+<!--                     REML = FALSE,  -->
+<!--                     na.action = 'na.omit', data = CT)  -->
+<!-- #table for CTmin -->
+<!-- a <- Anova(LmerCTmin.4, type=3)  -->
+<!-- a$Significance <- "   " -->
+<!-- a$Significance[a$`Pr(>Chisq)`<.05] <- "*  " -->
+<!-- a$Significance[a$`Pr(>Chisq)`<.001] <- "***" -->
+<!-- a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3) -->
+<!-- a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`) -->
+<!-- a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="") -->
+<!-- options(knitr.kable.NA = '') -->
+<!-- kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("adultanova.png") -->
 
-LmerCTmin.4 <- lmer(as.numeric(CT_min) ~ Site + Temp + Light + 
-                      Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
-                      (1|Female), 
-                    REML = FALSE, 
-                    na.action = 'na.omit', data = CT) 
-#table for CTmin
-a <- Anova(LmerCTmin.4, type=3) 
-a$Significance <- "   "
-a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
-a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
-a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
-a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
-a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
-options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("adultanova.png")
+<!-- #table for CTmin -->
+<!-- a <- Anova(LmerCTmax.4, type=3) -->
+<!-- a$Significance <- "   " -->
+<!-- a$Significance[a$`Pr(>Chisq)`<.05] <- "*  " -->
+<!-- a$Significance[a$`Pr(>Chisq)`<.001] <- "***" -->
+<!-- a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3) -->
+<!-- a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`) -->
+<!-- a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="") -->
+<!-- options(knitr.kable.NA = '') -->
+<!-- kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("adultanova.png") -->
 
-#table for CTmin
-a <- Anova(LmerCTmax.4, type=3)
-a$Significance <- "   "
-a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
-a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
-a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
-a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
-a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
-options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("adultanova.png")
-
-```
+<!-- ``` -->
 
 
-Note: missing supplementary materials... will add them in!
+<!-- Note: missing supplementary materials... will add them in! -->
 
 
