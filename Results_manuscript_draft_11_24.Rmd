@@ -803,29 +803,30 @@ kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escap
 
 ```
 
-CTmin (will reformat)
-```{r}
-#CT
-ggplot(data = CT, aes(x = Site, y = CT_min, color = Temp)) +
-  #rory_theme +
-  facet_wrap(Sex~Light, nrow = 1) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
-  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
-  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("CTmin (C)") + xlab("Site")+scale_color_viridis_d()
+(Need to remove "Sex" below for it to run)
+<!-- CTmin (will reformat) -->
+<!-- ```{r} -->
+<!-- #CT -->
+<!-- ggplot(data = CT, aes(x = Site, y = CT_min, color = Temp)) + -->
+<!--   #rory_theme + -->
+<!--   facet_wrap(Sex~Light, nrow = 1) + -->
+<!--   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) + -->
+<!--   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) + -->
+<!--   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) + -->
+<!--   ylab("CTmin (C)") + xlab("Site")+scale_color_viridis_d() -->
 
-```
+<!-- ``` -->
 
-CTmax (will reformat)
-```{r}
-ggplot(data = CT, aes(x = Site, y = CT_max, color = Temp)) +
-  rory_theme +
-  facet_wrap(Sex~Light, nrow = 1) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
-  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
-  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("CTmax (C)") + xlab("Site")+scale_color_viridis_d()
-```
+<!-- CTmax (will reformat) -->
+<!-- ```{r} -->
+<!-- ggplot(data = CT, aes(x = Site, y = CT_max, color = Temp)) + -->
+<!--   rory_theme + -->
+<!--   facet_wrap(Sex~Light, nrow = 1) + -->
+<!--   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) + -->
+<!--   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) + -->
+<!--   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) + -->
+<!--   ylab("CTmax (C)") + xlab("Site")+scale_color_viridis_d() -->
+<!-- ``` -->
 
 
 
