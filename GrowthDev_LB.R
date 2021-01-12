@@ -1,15 +1,30 @@
 #==================
 #DEVELOPMENT PLOT
 #load and process data in Growth Develoment.R
+
 #try ordered factor
-#Instars$Site= factor(Instars$Site, ordered=FALSE, levels=c("A1","B1","C1") )
+#Instars$Site= factor(Instars$Site, ordered=TRUE, levels=c("A1","B1","C1") )
+Instars$Site <- as.factor(Instars$Site)
 
 nLmer0 <- lmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
                  (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
 
+
 #split sexes
 #nLmer0 <- lmer(as.numeric(Age_Adult) ~ Site * Temp * Light + 
 #                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars[Instars$sex=="F",])
+
+#check numeric elevation
+#make numeric elevation variable
+Instars$elev= 2195
+Instars$elev[Instars$Site=="B1"]= 2591
+Instars$elev[Instars$Site=="C1"]= 3048
+#scale
+Instars$elev.s= scale(Instars$elev)
+
+nLmer0 <- lmer(as.numeric(Age_Adult) ~ sex * elev.s * Temp * Light + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+#----
 
 Anova(nLmer0, type = 3)
 summary(nLmer0)
