@@ -714,6 +714,7 @@ anova(LmS5, LmS4, LmS3, LmS2, LmS1, LmS0)
 
 
 ```{r}
+#BEWARE -- THIS IS SOMEWHAT DIFFERENT FROM RORY'S RESULTS USING Anova(LmS2, type=3)... investigate! -- I'm not sure about type III in general. See Warning here: https://www.rdocumentation.org/packages/car/versions/3.0-10/topics/Anova
 f <- manova(LmS2)
 a <- as.data.frame(summary(f, test="Pillai")[]$stats)
 a$Significance <- "   "
@@ -729,7 +730,8 @@ kable(a, digits=3, col.names=c("Df", "Pillai", "approx F", "num Df", "den Df", "
 
 
 ```{r}
-
+#don't know how to get this into kable, so I'm going to copy and paste into the doc for now
+Anova(LmS2, type = 3)
 ```
 
 
@@ -904,92 +906,153 @@ Supplement
 S4
 ```{r, echo=FALSE}
 s <- summary(LmerPBT.6)
-kable(s[["coefficients"]], digits=3, format="html") %>% kable_styling()
+kable(s[["coefficients"]], digits=3, format="html") %>% kable_styling() %>% save_kable("tabs/PBTSummary.png")
 ```
 
 
 
 ### CTmin and CTmax
 
-QUESTION about the CT data: Sex is not a variable. Was that not recorded / were they all of one sex?
+QUESTION about the CT data: Sex is not a variable. Was that not recorded / were they all of one sex? 
+ANSWER: no -- you must extract it (see what I do now which I got from ThemSens_LB.R)
 ```{r, echo=FALSE}
 CT <- read.csv(file = "./data/CT_Data_2016.csv", header = TRUE)
+HopRaw <- read.csv(file = "./data/Pdodge_PerformanceData1_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+SexData <- data.frame(HopRaw$Individual, HopRaw$sex, stringsAsFactors = FALSE)
+
+CT <- merge(CT, SexData, by.x =  colnames(CT)[1], by.y = colnames(SexData)[1])
+colnames(CT)[ncol(CT)] <- "Sex"
+CT$Sex <- ifelse(CT$Sex == "", NA, CT$Sex)
+
+#Drop cases with no sex
+CT= subset(CT, CT$Sex %in% c("M","F"))
 ```
 
-```{r, include=FALSE}
+```{r}
 #exploring CT_max without random effects 
 
-lm_site <- lm(as.numeric(CT_max) ~ Site,
+lm_site_max <- lm(as.numeric(CT_max) ~ Site,
                  na.action = 'na.omit', data = CT)
 
-lm_temp <- lm(as.numeric(CT_max) ~ Temp,
+lm_temp_max <- lm(as.numeric(CT_max) ~ Temp,
                  na.action = 'na.omit', data = CT)
 
-lm_light <- lm(as.numeric(CT_max) ~ Light,
+lm_light_max <- lm(as.numeric(CT_max) ~ Light,
                  na.action = 'na.omit', data = CT)
 
-lm_st <- lm(as.numeric(CT_max) ~ Site + Temp,
+lm_sex_max <- lm(as.numeric(CT_max) ~ Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_st_max <- lm(as.numeric(CT_max) ~ Site + Temp,
                  na.action = 'na.omit', data = CT)
 
-lm_sl <- lm(as.numeric(CT_max) ~ Site + Light,
+lm_sl_max <- lm(as.numeric(CT_max) ~ Site + Light,
                  na.action = 'na.omit', data = CT)
 
-lm_tl <- lm(as.numeric(CT_max) ~ Temp + Light,
+lm_tl_max <- lm(as.numeric(CT_max) ~ Temp + Light,
                  na.action = 'na.omit', data = CT)
 
-lm_sxt <- lm(as.numeric(CT_max) ~ Site * Temp,
+lm_sS_max <- lm(as.numeric(CT_max) ~ Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_tS_max <- lm(as.numeric(CT_max) ~ Temp + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_lS_max <- lm(as.numeric(CT_max) ~ Light + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxt_max <- lm(as.numeric(CT_max) ~ Site * Temp,
                  na.action = 'na.omit', data = CT)
 
-lm_sxl <- lm(as.numeric(CT_max) ~ Site * Light,
+lm_sxl_max <- lm(as.numeric(CT_max) ~ Site * Light,
                  na.action = 'na.omit', data = CT)
 
-lm_txl <- lm(as.numeric(CT_max) ~ Temp * Light,
+lm_txl_max <- lm(as.numeric(CT_max) ~ Temp * Light,
                  na.action = 'na.omit', data = CT)
 
-lm_stl <- lm(as.numeric(CT_max) ~ Temp + Light + Site,
+lm_stl_max <- lm(as.numeric(CT_max) ~ Temp + Light + Site,
                  na.action = 'na.omit', data = CT)
 
-lm_sxtxl <- lm(as.numeric(CT_max) ~ Temp * Light * Site,
+lm_stlS_max <- lm(as.numeric(CT_max) ~ Temp + Light + Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxtxl_max <- lm(as.numeric(CT_max) ~ Temp * Light * Site,
                  na.action = 'na.omit', data = CT)
-aictab(list(lm_site, lm_temp, lm_light, lm_st, lm_sl, lm_tl, lm_sxt, lm_sxl, lm_txl, lm_stl, lm_sxtxl), modnames = c("lm_site", "lm_temp", "lm_light", "lm_st", "lm_sl", "lm_tl", "lm_sxt", "lm_sxl", "lm_txl", "lm_stl", "lm_sxtxl"))
+
+lm_sxtxlxS_max <- lm(as.numeric(CT_max) ~ Temp * Light * Site * Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+aictab(list(lm_site_max, lm_temp_max, lm_light_max, lm_sex_max, lm_st_max, lm_sl_max, lm_tl_max, lm_sS_max, lm_tS_max, lm_lS_max, lm_sxt_max, lm_sxl_max, lm_txl_max, lm_stl_max, lm_stl_max, lm_sxtxl_max, lm_sxtxlxS_max), modnames = c("lm_site_max", "lm_temp_max", "lm_light_max", "lm_sex_max", "lm_st_max", "lm_sl_max", "lm_tl_max", "lm_sS_max", "lm_tS_max", "lm_lS_max", "lm_sxt_max", "lm_sxl_max", "lm_txl_max", "lm_stl_max","lm_stlS_max", "lm_sxtxl_max", "lm_sxtxlxS_max"))
 ```
 
-```{r, include=FALSE}
+```{r}
+mod <- lm(as.numeric(CT_max) ~ Sex*Temp*Light*Site, data = CT)
+step(mod) #gives Temp + Light
+
+mod <- lm(as.numeric(CT_min) ~ Sex*Temp*Light*Site, data = CT)
+step(mod) #gives back something that doesn't have a good AIC (see lm_step in next chunk)
+```
+
+
+```{r}
 #exploring CT_min without random effects 
 
-lm_site <- lm(as.numeric(CT_min) ~ Site,
+lm_site_min <- lm(as.numeric(CT_min) ~ Site,
                  na.action = 'na.omit', data = CT)
 
-lm_temp <- lm(as.numeric(CT_min) ~ Temp,
+lm_temp_min <- lm(as.numeric(CT_min) ~ Temp,
                  na.action = 'na.omit', data = CT)
 
-lm_light <- lm(as.numeric(CT_min) ~ Light,
+lm_light_min <- lm(as.numeric(CT_min) ~ Light,
                  na.action = 'na.omit', data = CT)
 
-lm_st <- lm(as.numeric(CT_min) ~ Site + Temp,
+lm_sex_min <- lm(as.numeric(CT_min) ~ Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_st_min <- lm(as.numeric(CT_min) ~ Site + Temp,
                  na.action = 'na.omit', data = CT)
 
-lm_sl <- lm(as.numeric(CT_min) ~ Site + Light,
+lm_sl_min <- lm(as.numeric(CT_min) ~ Site + Light,
                  na.action = 'na.omit', data = CT)
 
-lm_tl <- lm(as.numeric(CT_min) ~ Temp + Light,
+lm_tl_min <- lm(as.numeric(CT_min) ~ Temp + Light,
                  na.action = 'na.omit', data = CT)
 
-lm_sxt <- lm(as.numeric(CT_min) ~ Site * Temp,
+lm_sS_min <- lm(as.numeric(CT_min) ~ Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_tS_min <- lm(as.numeric(CT_min) ~ Temp + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_lS_min <- lm(as.numeric(CT_min) ~ Light + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxt_min <- lm(as.numeric(CT_min) ~ Site * Temp,
                  na.action = 'na.omit', data = CT)
 
-lm_sxl <- lm(as.numeric(CT_min) ~ Site * Light,
+lm_sxl_min <- lm(as.numeric(CT_min) ~ Site * Light,
                  na.action = 'na.omit', data = CT)
 
-lm_txl <- lm(as.numeric(CT_min) ~ Temp * Light,
+lm_txl_min <- lm(as.numeric(CT_min) ~ Temp * Light,
                  na.action = 'na.omit', data = CT)
 
-lm_stl <- lm(as.numeric(CT_min) ~ Temp + Light + Site,
+lm_stl_min <- lm(as.numeric(CT_min) ~ Temp + Light + Site,
                  na.action = 'na.omit', data = CT)
 
-lm_sxtxl <- lm(as.numeric(CT_min) ~ Temp * Light * Site,
+lm_stlS_min <- lm(as.numeric(CT_min) ~ Temp + Light + Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxtxl_min <- lm(as.numeric(CT_min) ~ Temp * Light * Site,
                  na.action = 'na.omit', data = CT)
-aictab(list(lm_site, lm_temp, lm_light, lm_st, lm_sl, lm_tl, lm_sxt, lm_sxl, lm_txl, lm_stl, lm_sxtxl), modnames = c("lm_site", "lm_temp", "lm_light", "lm_st", "lm_sl", "lm_tl", "lm_sxt", "lm_sxl", "lm_txl", "lm_stl", "lm_sxtxl"))
+
+lm_sxtxlxS_min <- lm(as.numeric(CT_min) ~ Temp * Light * Site * Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_step <- lm(as.numeric(CT_min) ~ Sex + Temp + Light + Site + 
+    Sex:Temp + Temp:Light + Sex:Site + Temp:Site + Light:Site + 
+    Sex:Temp:Site + Temp:Light:Site, data = CT) #this is what the step function gave back
+
+aictab(list(lm_site_min, lm_temp_min, lm_light_min, lm_sex_min, lm_st_min, lm_sl_min, lm_tl_min, lm_sS_min, lm_tS_min, lm_lS_min, lm_sxt_min, lm_sxl_min, lm_txl_min, lm_stl_min, lm_stl_min, lm_sxtxl_min, lm_sxtxlxS_min, lm_step), modnames = c("lm_site_min", "lm_temp_min", "lm_light_min", "lm_sex_min", "lm_st_min", "lm_sl_min", "lm_tl_min", "lm_sS_min", "lm_tS_min", "lm_lS_min", "lm_sxt_min", "lm_sxl_min", "lm_txl_min", "lm_stl_min","lm_stlS_min", "lm_sxtxl_min", "lm_sxtxlxS_min", "lm_step"))
 ```
 
 
@@ -1021,8 +1084,9 @@ Lmermax_txl <- lmer(as.numeric(CT_max) ~ Temp * Light +
 
 aictab(list(Lmermax_t,Lmermax_l,Lmermax_tl,Lmermax_txl), modnames= c("Lmermax_t","Lmermax_l","Lmermax_tl","Lmermax_txl"))
 ```
+
 ```{r}
-#all singular / boundary issues
+#all singular / boundary issues (except just l which is the worst in terms of dAICc (=3.95))
 
 #exploring mixed models for CT_min
 
@@ -1060,8 +1124,97 @@ Follow-up questions:
 -Regardless of what we do, we get a singularity for CTmin if we have the random effect. Is this a huge issue that we have to avoid at all costs?
 
 ```{r}
-
+#considering going with txl for both and omitting the random effect
+AIC(lm_txl_min, Lmermin_txl)
+AIC(lm_txl_max, Lmermax_txl)
+#in each case the AIC is lower by 2 when random effects are omitted
 ```
+
+
+```{r}
+#not sure about whether to do txl or t+l... this would indicate t+l or even simply l... but actually, I think it might not be necessary to go with the same model for both
+
+lm_txl <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp * Light,
+                 na.action = 'na.omit', data = CT)
+lm_tl <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp + Light,
+                 na.action = 'na.omit', data = CT)
+lm_t <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp,
+                 na.action = 'na.omit', data = CT)
+lm_l <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Light,
+                 na.action = 'na.omit', data = CT)
+anova(lm_t, lm_tl, lm_txl)
+anova(lm_l, lm_tl, lm_txl)
+```
+
+```{r}
+#table for CTmin
+a <- Anova(lm_txl_min, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>F)`<.05] <- "*  "
+a$Significance[a$`Pr(>F)`<.001] <- "***"
+a$`Pr(>F)` <- format(a$`Pr(>F)`, scientific=TRUE, digits=3)
+a$`Pr(>F)` <- as.character(a$`Pr(>F)`)
+a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+a[5,4] <- NA
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("CTminanova.png")
+
+#table for CTmax
+a <- Anova(lm_txl_max, type=3) #this is not the best model for CTmax, but it's not much lower in AIC
+a$Significance <- "   "
+a$Significance[a$`Pr(>F)`<.05] <- "*  "
+a$Significance[a$`Pr(>F)`<.001] <- "***"
+a$`Pr(>F)` <- format(a$`Pr(>F)`, scientific=TRUE, digits=3)
+a$`Pr(>F)` <- as.character(a$`Pr(>F)`)
+a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+a[5,4] <- NA
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("CTmaxanova.png")
+```
+
+```{r}
+#the lowest AIC for CTmax: Light is significant
+#table for CTmax
+a <- Anova(lm_tl_max, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>F)`<.05] <- "*  "
+a$Significance[a$`Pr(>F)`<.001] <- "***"
+a$`Pr(>F)` <- format(a$`Pr(>F)`, scientific=TRUE, digits=3)
+a$`Pr(>F)` <- as.character(a$`Pr(>F)`)
+a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+a[5,4] <- NA
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("adultanova.png")
+```
+
+```{r}
+s <- summary(lm_txl_min)
+s <- data.frame(s[["coefficients"]])
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("tabs/CTminSummary.png")
+
+
+
+s <- summary(lm_txl_max)
+s <- data.frame(s[["coefficients"]])
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("tabs/CTmaxSummary.png")
+```
+
 
 
 Stuff from before:
@@ -1105,31 +1258,27 @@ kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escap
 
 ```
 
-(Need to remove "Sex" below for it to run)
-<!-- CTmin (will reformat) -->
-<!-- ```{r} -->
-<!-- #CT -->
-<!-- ggplot(data = CT, aes(x = Site, y = CT_min, color = Temp)) + -->
-<!--   #rory_theme + -->
-<!--   facet_wrap(Sex~Light, nrow = 1) + -->
-<!--   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) + -->
-<!--   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) + -->
-<!--   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) + -->
-<!--   ylab("CTmin (C)") + xlab("Site")+scale_color_viridis_d() -->
 
-<!-- ``` -->
+CTmin
+```{r}
+ggplot(data = CT, aes(x = Site, y = as.numeric(CT_min), color = Temp)) +
+facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
 
-<!-- CTmax (will reformat) -->
-<!-- ```{r} -->
-<!-- ggplot(data = CT, aes(x = Site, y = CT_max, color = Temp)) + -->
-<!--   rory_theme + -->
-<!--   facet_wrap(Sex~Light, nrow = 1) + -->
-<!--   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) + -->
-<!--   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) + -->
-<!--   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) + -->
-<!--   ylab("CTmax (C)") + xlab("Site")+scale_color_viridis_d() -->
-<!-- ``` -->
+```
 
+CTmax
+```{r}
+ggplot(data = CT, aes(x = Site, y = as.numeric(CT_max), color = Temp)) +
+facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
 
 
 
