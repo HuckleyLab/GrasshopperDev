@@ -425,6 +425,13 @@ LmerM5 <- lmer(as.numeric(Mass_Adult) ~ Site + Temp + Light +
 
 ```
 
+New... mass adult as a function of development time
+```{r}
+lm(as.numeric(Mass_Adult) ~ as.numeric(Age_Adult) + 
+                 (1|Female2))
+```
+
+
 We once again used the full model, although it did not have the highest AICc, so that we could easily draw comparisons to our development models (age at adult and age at each instar).
 
 Figure 3
@@ -1132,7 +1139,7 @@ AIC(lm_txl_max, Lmermax_txl)
 
 
 ```{r}
-#not sure about whether to do txl or t+l... this would indicate t+l or even simply l... but actually, I think it might not be necessary to go with the same model for both
+#not sure about whether to do txl or t+l... this would indicate t+l or even simply l... but might want to go with the same model for both
 
 lm_txl <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp * Light,
                  na.action = 'na.omit', data = CT)
@@ -1215,6 +1222,35 @@ options(knitr.kable.NA = '')
 kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("tabs/CTmaxSummary.png")
 ```
 
+CTmin
+```{r}
+ggplot(data = CT, aes(x = Site, y = as.numeric(CT_min), color = Temp)) +
+facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+
+```
+
+CTmax
+```{r}
+ggplot(data = CT, aes(x = Site, y = as.numeric(CT_max), color = Temp)) +
+facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
+
+
+```{r}
+plot_model(lm_txl_min, type="pred", terms=c("Light", "Temp"), show.data=FALSE)
+plot_model(lm_txl_min, type="pred", terms=c("Temp"), show.data=FALSE)
+#plot_model(Lmer0.3, type="pred", terms=c("Instar", "Site"), show.data=FALSE)
+```
+
+
 
 
 Stuff from before:
@@ -1257,31 +1293,5 @@ options(knitr.kable.NA = '')
 kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("adultanova.png")
 
 ```
-
-
-CTmin
-```{r}
-ggplot(data = CT, aes(x = Site, y = as.numeric(CT_min), color = Temp)) +
-facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
-  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
-  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
-
-```
-
-CTmax
-```{r}
-ggplot(data = CT, aes(x = Site, y = as.numeric(CT_max), color = Temp)) +
-facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
-  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
-  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
-```
-
-
-
-Note: missing supplementary materials... will add them in!
 
 

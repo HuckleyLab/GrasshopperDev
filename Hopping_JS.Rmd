@@ -174,7 +174,7 @@ Analyze performance with linear mixed models
 Hop_2 <- merge(Hop, Instars[,c(1,3,54)], by.x = "ID", by.y = "Individual") #Instars from the "GrowthRate_Script_2016"
 hist(Hop_2$Mean) #looks pretty normal
 
-#JULIA -- write self some notes on poly()
+#JULIA -- write self some notes on poly(): it's TestTemp + TestTemp^2, right?
 LmerH0 <- lmer(Mean ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Light + 
                  (1|Female2), 
                #REML = FALSE,
@@ -243,7 +243,7 @@ LmerL_H0 <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Lig
                  #REML = FALSE,
                  na.action = 'na.omit', data = Hop_Long)
 #the 5-way interaction is significant, so should work from the full model
-#JULIA: I get this error: Model failed to converge with max|grad| = 0.00744655 (tol = 0.002, component 1)
+#JULIA: I get this error: Model failed to converge with max|grad| = 0.00744655 (tol = 0.002, component 1)... I found this: https://stackoverflow.com/questions/53034261/warning-lme4-model-failed-to-converge-with-maxgrad
 #JULIA: understanding (1|variable/ID/Female2) -- which hop it is (multiple trials: 1, 2, etc.) is nested within the grasshopper is nested within the mother
 
 ObjL0<-data.frame(summary(lsmeans(LmerL_H0, ~ TestTemp*Sex*Site*Temp*Light, at = list(TestTemp = c(25,17,10,35)), type = "response")))
