@@ -145,13 +145,18 @@ Hop$TestTempF <- as.factor(Hop$TestTemp)
 Hop$Treat <- paste(Hop$Temp, Hop$Light, sep = "_")
 ```
 
-Plots from Lauren... getting minSE error (and didn't before, I think)
+Plots
 ```{r}
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+Give.N <- function(x){return(c(y = MaxSE(x)*1.1, label = length(x))) }
+
 #hopping performance analyses
 ggplot(data = Hop, aes(x = TestTemp, y = Mean, col = Site, linetype = Sex)) +
   rory_theme +
   facet_grid(Light~Temp) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1, position = position_dodge(width = 3)) +
+  stat_summary(fun.y = mean, fun.ymin = std.err, fun.ymax = std.err, na.rm = TRUE, size = 1, position = position_dodge(width = 3)) +
   stat_summary(fun.y = mean, geom = "line", size = 2, position = position_dodge(width = 3)) +
   ylab("Mean hopping distance (cm)") + xlab("Test temperature") +
   scale_x_continuous(limits = c(5, 40), breaks = c(10, 17, 25, 35))
@@ -239,12 +244,14 @@ Hop_Long <- melt(Hop_2[, c(1:9, 22:26, 33:35)], id.vars = c("ID", "Batch", "CC",
 #full model (huge)
 
 LmerL_H0 <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Light + 
-                   (1|variable/ID/Female2), 
+                   #(1|variable/ID/Female2), #original
+                   #(1|Female2/ID/variable), #this gave a singularity issue 
+                   (1|Female2/ID) + (1|variable), #so this did work -- might wanna double check it!
                  #REML = FALSE,
                  na.action = 'na.omit', data = Hop_Long)
 #the 5-way interaction is significant, so should work from the full model
-#JULIA: I get this error: Model failed to converge with max|grad| = 0.00744655 (tol = 0.002, component 1)... I found this: https://stackoverflow.com/questions/53034261/warning-lme4-model-failed-to-converge-with-maxgrad
-#JULIA: understanding (1|variable/ID/Female2) -- which hop it is (multiple trials: 1, 2, etc.) is nested within the grasshopper is nested within the mother
+#JULIA (with original which is now commented out): I get this error: Model failed to converge with max|grad| = 0.00744655 (tol = 0.002, component 1)... I found this: https://stackoverflow.com/questions/53034261/warning-lme4-model-failed-to-converge-with-maxgrad
+#JULIA: understanding (1|variable/ID/Female2) -- which hop it is (multiple trials: 1, 2, etc.) is nested within the grasshopper is nested within the mother... I think the order is flipped from how it should be. But then (similar to the instar analysis) this flipping it didn't work... see what I have now
 
 ObjL0<-data.frame(summary(lsmeans(LmerL_H0, ~ TestTemp*Sex*Site*Temp*Light, at = list(TestTemp = c(25,17,10,35)), type = "response")))
 #JULIA: Note: D.f. calculations have been disabled due to # of obs
@@ -252,14 +259,85 @@ ObjL0<-data.frame(summary(lsmeans(LmerL_H0, ~ TestTemp*Sex*Site*Temp*Light, at =
 ggplot(data = ObjL0, aes(y = lsmean, x = TestTemp, col = Site, shape = Sex, linetype = Sex)) +
   rory_theme +
   facet_wrap(~Temp+Light, nrow = 1) +
-  geom_errorbar(aes(ymax = upper.CL, ymin = lower.CL), position = position_dodge(width = 3)) +
+  geom_errorbar(aes(ymax = asymp.UCL, ymin = asymp.LCL), position = position_dodge(width = 3)) +
   geom_line(aes(x = TestTemp), size = 1.5, position = position_dodge(width = 3)) +
   geom_point(size = 6, position = position_dodge(width = 3)) +
   ylab("Mean hopping distance\n(cm, LS-means)") + xlab("Site") +
   scale_x_continuous(breaks = c(10, 17, 25, 35)) +
   scale_shape_manual(values = c(19, 1))
 #JULIA: Error in FUN(X[[i]], ...) : object 'upper.CL' not found 
+#fixed by changing to asymp.UCL (and similar for ymin)
 ```
+Load PBT to enable next step
+```{r}
+#double check -- might be more stuff than necessary!
+
+setwd("./data/")
+
+#upload PBT data
+PBT <- read.csv(file = "PBTdata_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+
+
+###### Clean up the data ############
+
+#collect treatment labels
+Labels <- str_split_fixed(PBT[,1], "_", n = 4) #collect Temp and Light treatments
+PBT$Temp <- Labels[,2]
+PBT$Light <- Labels[,3]
+PBT$Site <- Labels[,4]
+
+HopRaw <- read.csv(file = "Pdodge_PerformanceData1_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+SexData <- data.frame(HopRaw$Individual, HopRaw$sex, stringsAsFactors = FALSE)
+
+PBT <- merge(PBT, SexData, by.x =  colnames(PBT)[1], by.y = colnames(SexData)[1])
+colnames(PBT)[27] <- "Sex"
+PBT$Sex <- ifelse(PBT$Sex == "", NA, PBT$Sex)
+
+
+#trim out missing data (rows with no values)
+PBT <- PBT[is.na(PBT$t_enter_grad) == FALSE, ]
+
+######## calculate median and mean TB for each individual ###############
+
+TB_df <- data.frame(PBT$Tb_1, PBT$Tb_2, PBT$Tb_3, PBT$Tb_4, PBT$Tb_5, PBT$Tb_6)
+
+PBT$Tb_Mean <- apply(TB_df, 1, mean, na.rm = TRUE)
+PBT$Tb_Median <- apply(TB_df, 1, median, na.rm = TRUE)
+PBT$Tb_sd <- apply(TB_df, 1, sd, na.rm = TRUE)
+
+######## Sample Size ##########
+
+PBT$Treat <- paste(PBT$Temp, PBT$Light, sep = "_")
+#table(PBT[,c(26,27,31)]) #results collated in google drive file "Performance Sample Sizes"
+
+##### Analyses #####
+PBT_2 <- merge(PBT, Instars[,c(1,3,54)], by.x = "Individual", by.y = "Individual")
+PBT_Long <- melt(PBT_2[,c(1,3,10,12,14,16,18,20,24:27,31,33)], id.var = c("Individual", "TprefBATCH", "Female2", "Temp", "Light", "Site", "Sex", "Treat"))
+PBT_Long$Temp <- as.factor(PBT_Long$Temp)
+PBT_Long$Light <- as.factor(PBT_Long$Light)
+PBT_Long$Site <- as.factor(PBT_Long$Site)
+PBT_Long$Sex <- as.factor(PBT_Long$Sex)
+PBT_Long$Individual <- as.factor(PBT_Long$Individual)
+
+#STILL NEED TO GET TO Obj_PBT_Ind (see PBT.R... try to make R work the way Rory couldn't get it to)
+LmerPBT.6 <- lmer(value ~ Sex + Site + Temp + Light + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, #this was initially commented out
+                  data = PBT_Long)
+
+
+Obj_PBT<-data.frame(summary(lsmeans(LmerPBT.6, ~ Sex * Site * Temp * Light)))
+
+#estimate lsmean PBT for every individual
+
+#Unfortunately, can't figure out how to collect individual means from preferred model, so have to just use means from a model only including individual
+Lm_PBT.6 <- lm(value ~ Individual, data = PBT_Long)
+Obj_PBT_Ind <- data.frame(summary(lsmeans(Lm_PBT.6, ~ Individual)))
+colnames(Obj_PBT_Ind) <- c("Individual", "PBT", "PBT.SE", "df", "lower.CL",  "upper.CL")  
+```
+
+
+
 Compare hopping and ultimate performance
 ```{r}
 #Function used to collect row with maximum mean hopping distance
@@ -271,6 +349,7 @@ Opt_DF <- foreach(i = unique(Hop_2$ID), .combine = rbind) %do%
 colnames(Opt_DF) <- c("ID", "Site", "Species", "Sex", "Temp", "Light", "To_Hop", "PTo_Hop")
 
 #merge with PBT data (from other script) to have PBT and T with optimal performance ****need to read in PBT data
+
 Opt_DF <- merge(Opt_DF, Obj_PBT_Ind[, c(1:3)], by.x = "ID", by.y = "Individual")
 
 plot(Opt_DF$PBT, Opt_DF$To_Hop) #no obvious correlation
