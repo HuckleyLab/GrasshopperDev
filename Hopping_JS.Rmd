@@ -369,3 +369,63 @@ HopCor1.2 <- lm(To_Hop ~ PBT * Sex, data = Opt_DF)
 Anova(HopCor1.2, type = 3) #not significant outside of the more complex model though
 ```
 
+```{r}
+##### Estimate thermal performance curves #####
+
+#write formular for performance curve from Buckley and Nufio 2014 (product of Gaussian and Gompertz functions)
+Performance <- function (Te, Pmax, To, rho, sig) {
+  Pmax * (exp(1)^(-exp((rho*(Te-To))-6) - (sig*((Te-To)^2))))
+}
+#Te = temperature at which performance is assessed
+#Pmax = performance at optimal temperature (in units of performance)
+#To = optimal temperature (C)
+#rho  = sensitivity of performance above To
+#sig = sensitivity of performance below To
+
+
+#Loop to build a dataframe with TPC parameters for each individual based on hopping performance, uses PBT information from that script
+#Uses nls2 to calculate the performance curves
+
+##Rory's original
+# TPC_param <- data.frame(foreach(i = unique(Opt_DF$ID), .combine = rbind) %do% {
+#   #PBT <- Opt_DF[Opt_DF$ID == i , "PBT"]
+#   PBT <- 40
+#   Start <- data.frame(Pmax = c(10,70), To = c(PBT-15,PBT+15), sig = c(0, 0.7))
+#   NLS <- nls2(y ~ Performance(Te, Pmax, To, rho = 0.7, sig), start = Start, data = TPC_data[TPC_data$ID == i ,], algorithm = "brute-force") 
+#   c(i, as.vector(coef(NLS)), 0.7) })
+##I get an error in the loop: Error in eval(form[[2L]], envir = env) : object 'y' not found
+
+#https://www.rdocumentation.org/packages/nls2/versions/0.1-2/topics/nls2 NLS2 resource
+
+
+#my modifications 
+TPC_param <- data.frame(foreach(i = unique(Opt_DF$ID), .combine = rbind) %do% {
+  #PBT <- Opt_DF[Opt_DF$ID == i , "PBT"] #why is this commented out
+  PBT <- 40
+  #Start <- data.frame(Pmax = c(10,70), To = c(PBT-15,PBT+15), sig = c(0, 0.7))
+  Start <- expand.grid(Pmax = seq(10,70, len=6), To = seq(PBT-15,PBT+15, len=15), sig = seq(0, 0.7, len=4))
+  NLS <- nls2(Mean ~ Performance(TestTemp, Pmax, To, rho = 0.7, sig), start = Start, data = Hop[Hop$ID == i ,], algorithm = "brute-force") #replaced "TPC_data" with Hop in data = 
+  c(i, as.vector(coef(NLS)), 0.7) }) 
+
+
+colnames(TPC_param) <- c("ID", "Pmax", "To", "sig", "rho")
+
+#Add To calculated from TPC's to hopping data to look for correlations
+Opt_DF2 <- merge(Opt_DF, TPC_param[,c(1,3)], by = "ID")
+
+# see if anything jumps out
+ggplot(data = Opt_DF2, aes(x = PBT, y = as.numeric(as.character(To)), col = Site)) +
+  rory_theme +
+  geom_point(size = 6)
+
+#I'm unsure what is causing the big breaks...
+#JULIA: Fixed -- use expand grid and seq function
+#New question: what do the ones at 55 mean? And should I explore higher values? I'm thinking yeah given that the clump doesn't make sense, so maybe the true value is much higher
+
+HopCor2 <- lm(as.numeric(as.character(To)) ~ PBT*Sex*Temp*Light*Site, data = Opt_DF2)
+step(HopCor2) #nearly the full model...
+
+HopCor2.1 <- lm(as.numeric(as.character(To)) ~ PBT*(Sex+Temp*Light+Site), data = Opt_DF2)
+Anova(HopCor2.1) #Light and PBT may be important for affecting To, but that's about it
+```
+
