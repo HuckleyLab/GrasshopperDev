@@ -126,9 +126,29 @@ ggplot(data = Instars, aes(x = Site, y = Mass_Adult, color=Temp)) +
 #==================
 #Shape
 
+#to long format
+shape_long <- melt(Instars[,c(1:8,54,30:32)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "sex", "Temp", "Light","Mass_Adult")) 
+
+ggplot(data = shape_long, aes(x = Mass_Adult^0.333, y = value, color=Temp)) +
+  geom_point(aes(shape=sex))+facet_grid(variable ~ Light, scales="free_y")+geom_smooth(method="lm")
+
+#STATS check for divergence from mass
+shape0 <- lmer(Femur_Adult ~ Mass_Adult* Temp * Light * sex * Site +
+                (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+shape0 <- lmer(log(Pronotum_Adult) ~ log(Mass_Adult)* Temp * Light * sex * Site +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+Anova(shape0, type = 3)
+summary(shape0)
+
+# 4 way interaction
+plot_model(shape0, type="pred", terms=c("Site","Temp","Light","sex"), show.data=FALSE)
+
+#----------
 #femur length
 ggplot(data = Instars, aes(x = Site, y = Femur_Adult, color=Temp)) +
-  rory_theme +
+  #rory_theme +
   facet_wrap(~sex+Light, nrow = 1) +
   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
@@ -201,9 +221,58 @@ ggplot(data = PCmeans, aes(x = PC1_mean, y = PC2_mean, col = Site, shape = Sex))
 #geom_point(data = ScatDat, aes(x = PC.scores1...xPC., y = PC.scores1...yPC.), col = colo1, shape = symb1, fill = bg1, size = 4) +
 #theme(legend.position = Pos)#
 
+#=================
+#By instar
 
+#Development
+Instars_Adult <- Instars[is.na(Instars$Age_Adult) == FALSE,]
+Instars_Adult_Long <- melt(Instars_Adult[,c(1:8,50:54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "sex", "Temp", "Light")) 
 
+#Make instar numeric
+Instars_Adult_Long$instar=3
+Instars_Adult_Long$instar[Instars_Adult_Long$variable=="Age_4th"]=4
+Instars_Adult_Long$instar[Instars_Adult_Long$variable=="Age_5th"]=5
+Instars_Adult_Long$instar[Instars_Adult_Long$variable=="Age_Adult"]=6
 
+Lmer0.1 <- lmer(as.numeric(value) ~ sex * Site * Temp * Light * instar + 
+                  (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
 
+summary(Lmer0.1)
+Anova(Lmer0.1)
+
+plot_model(Lmer0.1, type="pred", terms=c("instar","Temp","Light","Site","sex"), show.data=FALSE)
+
+#split male and female?
+#split sex
+Lmer0.1 <- lmer(as.numeric(value) ~ Site * Temp * Light * instar + 
+                  (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long[Instars_Adult_Long$sex=="F",])
+
+plot_model(Lmer0.1, type="pred", terms=c("instar","Temp","Light","Site"), show.data=FALSE)
+
+#---------------------
+#Mass
+Instars_Adult <- Instars[is.na(Instars$Age_Adult) == FALSE,]
+Instars_Adult_Long <- melt(Instars_Adult[,c(1:8,18,21,24,30,54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "sex", "Temp", "Light")) 
+
+#Make instar numeric
+Instars_Adult_Long$instar=3
+Instars_Adult_Long$instar[Instars_Adult_Long$variable=="Mass_4th"]=4
+Instars_Adult_Long$instar[Instars_Adult_Long$variable=="Mass_5th"]=5
+Instars_Adult_Long$instar[Instars_Adult_Long$variable=="Mass_Adult"]=6
+
+Lmer0.1 <- lmer(as.numeric(value) ~ sex * Site * Temp * Light * instar + 
+                  (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+summary(Lmer0.1)
+Anova(Lmer0.1)
+
+plot_model(Lmer0.1, type="pred", terms=c("instar","Temp","Light","Site","sex"), show.data=FALSE)
+
+#split male and female?
+#split sex
+Lmer0.1 <- lmer(as.numeric(value) ~ Site * Temp * Light * instar + 
+                  (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long[Instars_Adult_Long$sex=="M",])
+
+plot_model(Lmer0.1, type="pred", terms=c("instar","Temp","Light","Site"), show.data=FALSE)
 
 
