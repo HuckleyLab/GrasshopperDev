@@ -158,7 +158,7 @@ Give.N <- function(x){return(c(y = MaxSE(x)*1.1, label = length(x))) }
 ggplot(data = Hop, aes(x = TestTemp, y = Mean, col = Site, linetype = Sex)) +
   rory_theme +
   facet_grid(Light~Temp) +
-  stat_summary(fun.y = mean, fun.ymin = std.err, fun.ymax = std.err, na.rm = TRUE, size = 1, position = position_dodge(width = 3)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1, position = position_dodge(width = 3)) +
   stat_summary(fun.y = mean, geom = "line", size = 2, position = position_dodge(width = 3)) +
   ylab("Mean hopping distance (cm)") + xlab("Test temperature") +
   scale_x_continuous(limits = c(5, 40), breaks = c(10, 17, 25, 35))
@@ -248,14 +248,14 @@ Hop_Long <- melt(Hop_2[, c(1:9, 22:26, 33:35)], id.vars = c("ID", "Batch", "CC",
 LmerL_H0 <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Light + 
                    #(1|variable/ID/Female2), #original
                    #(1|Female2/ID/variable), #this gave a singularity issue 
-                   (1|Female2/ID) + (1|variable), #so this did work -- might wanna double check it!
+                   (1|Female2/ID) #+ (1|variable), #so this did work -- might wanna double check it!
                  #REML = FALSE,
                  na.action = 'na.omit', data = Hop_Long)
 #the 5-way interaction is significant, so should work from the full model (says Rory -- should I check this?)
 #JULIA (with original which is now commented out): I get this error: Model failed to converge with max|grad| = 0.00744655 (tol = 0.002, component 1)... I found this: https://stackoverflow.com/questions/53034261/warning-lme4-model-failed-to-converge-with-maxgrad
 #JULIA: understanding (1|variable/ID/Female2) -- which hop it is (multiple trials: 1, 2, etc.) is nested within the grasshopper is nested within the mother... I think the order is flipped from how it should be. But then (similar to the instar analysis) this flipping it didn't work... see what I have now
 
-#Do we really need 1|variable? It's less important than instar but they might get more tired after a few hops so order probably still matters... don't know if it needs to be nestsed within anything else (and hey, as I have it, it isn't)
+#Do we really need 1|variable? It's less important than instar but they might get more tired after a few hops so order probably still matters... don't know if it needs to be nested within anything else (and hey, as I have it, it isn't) -- we don't need it period accroding to Lauren.
 
 ObjL0<-data.frame(summary(lsmeans(LmerL_H0, ~ TestTemp*Sex*Site*Temp*Light, at = list(TestTemp = c(25,17,10,35)), type = "response")))
 #JULIA: Note: D.f. calculations have been disabled due to # of obs

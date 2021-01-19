@@ -621,7 +621,7 @@ AdultsOnly <- AdultsOnly[is.na(AdultsOnly$Sex) == FALSE, ]
 
 TS <- paste(AdultsOnly$Temperature, AdultsOnly$Photoperiod, AdultsOnly$Sex, AdultsOnly$Site, sep = "_")
 
-Shape <- cbind(AdultsOnly$Mass_Adult^1/3, AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult)
+Shape <- cbind(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult)
 
 
 #run the PCA
@@ -676,28 +676,28 @@ ggplot(data = PCmeans, aes(x = PC1_mean, y = PC2_mean, col = Site, shape = Sex))
 #### multivariate shape analysis ####
 # not sure if or how to include a random effect.  For this, leaving female out of it
 
-LmS0 <- lm(cbind(AdultsOnly$Mass_Adult^1/3, AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Sex * Site * Temperature * Photoperiod, 
+LmS0 <- lm(cbind(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Sex * Site * Temperature * Photoperiod, 
            data = AdultsOnly)
 
-LmS1 <- lm(cbind(AdultsOnly$Mass_Adult^1/3, AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+LmS1 <- lm(cbind(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Sex + Site + Temperature + Photoperiod + 
              Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
              Site:Photoperiod:Temperature, 
            data = AdultsOnly)
 
-LmS2 <- lm(cbind(AdultsOnly$Mass_Adult^1/3, AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+LmS2 <- lm(cbind(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Sex + Site + Temperature + Photoperiod + 
              Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod,
            data = AdultsOnly)
 
-LmS3 <- lm(cbind(AdultsOnly$Mass_Adult^1/3, AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+LmS3 <- lm(cbind(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Sex + Site + Temperature + Photoperiod + 
              Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod, 
            data = AdultsOnly)
 
-LmS4 <- lm(cbind(AdultsOnly$Mass_Adult^1/3, AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Site + Temperature + Photoperiod + 
+LmS4 <- lm(cbind(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Site + Temperature + Photoperiod + 
              Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
              Site:Temperature:Photoperiod,
            data = AdultsOnly)
 
-LmS5 <- lm(cbind(AdultsOnly$Mass_Adult^1/3, AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Site + Temperature + Photoperiod + 
+LmS5 <- lm(cbind(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Femur_Adult, AdultsOnly$Pronotum_Adult) ~ Site + Temperature + Photoperiod + 
              Site:Temperature + Site:Photoperiod + Temperature:Photoperiod,
            data = AdultsOnly)
 

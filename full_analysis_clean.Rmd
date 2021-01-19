@@ -1,0 +1,983 @@
+All the analysis presented somewhat coherently for once
+
+#Set up
+
+Set working directory to source file location
+```{r setup}
+knitr::opts_knit$set(root.dir = './')
+```
+
+Load packages and functions
+```{r}
+######## Initial ########
+rm(list=ls(all = TRUE))
+library(stringr)
+library(foreach)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(plotrix)
+library(nlme)
+library(lme4)
+library(car)
+library(AICcmodavg)
+library(lsmeans)
+library(reshape2)
+library(MASS)
+library(nls2)
+library(tidyverse)
+library(kableExtra)
+library(faraway)
+library(sjPlot) #for plot_new
+library(tidyverse)
+library(knitr)
+library(afex)
+library(RColorBrewer)
+
+#webshot::install_phantomjs()
+library(kableExtra)
+
+source('Functions.R')
+#setwd("./data/") #this will be removed... just a reminder to put ./data everywhere
+```
+
+Load and prepare "Instars" dataframe
+```{r}
+######## Instars from GrowthRate_Script_2016.R ########
+Instars <- read.csv(file = "data/GrasshopperData_3rdToAdult_SPR16.csv", header = TRUE, stringsAsFactors = FALSE)
+#str(Instars)
+Instars$sex <- ifelse(Instars$sex == "", NA, Instars$sex)
+
+#Format dates and calculate ages
+Instars$Date1_Hatch <- as.Date(Instars$Date_Hatch, format = "%m/%d/%Y")
+Instars$Date1_1st <- as.Date(Instars$Date_1st, format = "%m/%d/%Y")
+Instars$Date1_2nd <- as.Date(Instars$Date_2nd, format = "%m/%d/%Y")
+Instars$Date1_3rd <- as.Date(Instars$Date_3rd, format = "%m/%d/%Y")
+Instars$Date1_4th <- as.Date(Instars$Date_4th, format = "%m/%d/%Y")
+Instars$Date1_5th <- as.Date(Instars$Date_5th, format = "%m/%d/%Y")
+Instars$Date1_5th. <- as.Date(Instars$Date_5th., format = "%m/%d/%Y")
+Instars$Date1_Adult <- as.Date(Instars$Date_Adult, format = "%m/%d/%Y")
+Instars$Date1_Death <- as.Date(Instars$Date_Death, format = "%m/%d/%Y")
+
+Instars$Age_3rd <- Instars$Date1_3rd - Instars$Date1_Hatch
+Instars$Age_4th <- Instars$Date1_4th - Instars$Date1_Hatch
+Instars$Age_5th <- Instars$Date1_5th - Instars$Date1_Hatch
+Instars$Age_Adult <- Instars$Date1_Adult - Instars$Date1_Hatch
+
+#trim out pell data
+Instars <- Instars[Instars$Species == "dodg",]
+
+#set factors
+Instars$Site <- as.factor(Instars$Site)
+Instars$sex <- as.factor(Instars$sex)
+Instars$Temp <- as.factor(Instars$Temp)
+Instars$Light <- as.factor(Instars$Light)
+Instars$Female <- as.factor(Instars$Female)
+Instars$Female2 <- as.factor(paste(Instars$Female, Instars$Site, sep = "_")) 
+  #Female2 gives each mother her own ID (differentes between FY1's across sites)
+
+#str(Instars)
+
+```
+The most notable variables in "Instar" here are...
+
+# Dependent variable: Development time
+## At adulthood
+How do temperature variance (Temp), photoperiod (Light), 
+elevation of site of origin (Site), and sex affect the age of maturation?
+
+Visualize
+```{r, echo=FALSE, warning=FALSE, message=FALSE, fig.dim=c(9,7)}
+
+# New facet label names for sex variable
+sex.labs <- c("Female", "Male")
+names(sex.labs) <- c("F", "M")
+
+# New facet label names for supp variable
+Light.labs <- c("Long day length", "Short day length")
+names(Light.labs) <- c("L", "S")
+# 
+# Temp.labs <- c("High var", "Low var")
+# names(Temp.labs) <- c("HV", "LV")
+
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+
+Give.N <- function(x){
+  return(c(y = MaxSE(x)*1.01, label = length(x))) 
+}
+
+#drop NA sex
+Instars= Instars[which(Instars$sex %in% c("F","M")),]
+
+ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp)) +
+#  rory_theme +
+  facet_grid(sex~Light, labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
+
+Look at the distribution -- it looks fairly normal
+```{r}
+
+```
+
+
+
+Compare different models, selecting the most complex (delta AICc>10)
+```{r}
+nLmer0 <- lmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer1 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 Site:Light:Temp +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer2 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer3 <- lmer(as.numeric(Age_Adult) ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer4 <- lmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+nLmer5 <- lmer(as.numeric(Age_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+aictab(list(nLmer0, nLmer1, nLmer2, nLmer3, nLmer4, nLmer5), modnames = c("nLmer0", "nLmer1", "nLmer2", "nLmer3", "nLmer4", "nLmer5"))
+
+#best is nLmer0
+```
+## Development time by instar
+### New approach (numeric instar)
+```{r}
+Instars_names <- Instars %>% rename(Sex=sex, Temperature=Temp, Photoperiod=Light)
+Instars_names$Site <- recode(Instars_names$Site, A1 = "2195m", B1="2591m", C1="3048m")
+Instars_Adult <- Instars_names[is.na(Instars_names$Age_Adult) == FALSE,]
+Instars_Adult_Long <- melt(Instars_Adult[,c(1:8,50:54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "Sex", "Temperature", "Photoperiod")) 
+
+#Make instar numeric
+Instars_Adult_Long$Instar=3
+Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_4th"]=4
+Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_5th"]=5
+Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_Adult"]=6
+```
+
+```{r}
+Lmer0.1 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod * Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+Lmer0.2 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + 
+                   (1|Female2/Individual)+(1|Instar), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+Lmer0.3 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar*Sex + Instar*Site + Instar*Temperature + Instar*Photoperiod + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+Lmer0.4 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long) #also tried just Instar and it was terrible
+
+aictab(list(Lmer0.1, Lmer0.2, Lmer0.3, Lmer0.4), modnames = c("Lmer0.1", "Lmer0.2", "Lmer0.3", "Lmer0.4"))
+
+#now Lmer0.2 is preferred. This treats Instar as a random effect. I read something that said random effects are always categorical, so maybe this is a bad thing (I guess in this case it is being treated as categorical)
+
+#It seems this approach of using numbers yields worse AICcs than the other approach (where they were categorical! Interesting!
+
+```
+
+```{r}
+#going with Lmer0.1
+a <- Anova(Lmer0.1, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling()
+
+```
+
+```{r}
+s <- summary(Lmer0.1)
+s <- data.frame(s[["coefficients"]])
+
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling()
+```
+
+
+### OLD ALTERNATIVE
+```{r}
+
+Instars_names <- Instars %>% rename(Sex=sex, Temperature=Temp, Photoperiod=Light)
+Instars_names$Site <- recode(Instars_names$Site, A1 = "2195m", B1="2591m", C1="3048m")
+Instars_Adult <- Instars_names[is.na(Instars_names$Age_Adult) == FALSE,]
+Instars_Adult_Long <- melt(Instars_Adult[,c(1:8,50:54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "Sex", "Temperature", "Photoperiod")) #tracks the time (value) when each individual reached each instar (variable)
+
+Instars_Adult_Long <- Instars_Adult_Long %>% rename(Instar=variable)
+
+
+Lmer0.1 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod * Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+Lmer0.2 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + 
+                   (1|Female2/Individual)+(1|Instar), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+Lmer0.3 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar*Sex + Instar*Site + Instar*Temperature + Instar*Photoperiod + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+Lmer0.4 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long) #also tried just Instar and it was terrible
+
+aictab(list(Lmer0.1, Lmer0.2, Lmer0.3, Lmer0.4), modnames = c("Lmer0.1", "Lmer0.2", "Lmer0.3", "Lmer0.4"))
+```
+
+
+```{r}
+#order=TRUE seems to make no difference -- maybe it was already detected / presumed?
+Instars_Adult_Long$Instar <- factor(Instars_Adult_Long$Instar, order = TRUE, levels =c('Age_3rd', 'Age_4th', 'Age_5th', 'Age_Adult'))
+
+Lmer0.1 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod * Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+Lmer0.2 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + 
+                   (1|Female2/Individual)+(1|Instar), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+Lmer0.3 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar*Sex + Instar*Site + Instar*Temperature + Instar*Photoperiod + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+Lmer0.4 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long) #also tried just Instar and it was terrible
+
+aictab(list(Lmer0.1, Lmer0.2, Lmer0.3, Lmer0.4), modnames = c("Lmer0.1", "Lmer0.2", "Lmer0.3", "Lmer0.4"))
+```
+
+# Mass 
+## Adult mass
+
+Check normal(?)
+```{r}
+
+```
+
+Visualize
+```{r}
+ggplot(data = Instars_names, aes(x = Site, y = as.numeric(Mass_Adult), color = Temperature)) +
+#  rory_theme +
+  facet_grid(Sex~Photoperiod, labeller=labeller(Sex = sex.labs, Photoperiod = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Mass as adult (g)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
+
+Model selection / AIC comparison 
+```{r}
+LmerM0 <- lmer(as.numeric(Mass_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars)
+
+LmerM1 <- lmer(as.numeric(Mass_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 Site:Light:Temp +
+                 (1|Female2), 
+               REML = FALSE, 
+               na.action = 'na.omit', data = Instars) #boundary (singular) fit: see ?isSingular
+
+LmerM2 <- lmer(as.numeric(Mass_Adult) ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars)
+
+LmerM3 <- lmer(as.numeric(Mass_Adult) ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars) #boundary (singular) fit: see ?isSingular
+
+LmerM4 <- lmer(as.numeric(Mass_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                 (1|Female2), 
+               REML = FALSE, 
+               na.action = 'na.omit', data = Instars) #boundary (singular) fit: see ?isSingular
+
+LmerM5 <- lmer(as.numeric(Mass_Adult) ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light +
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars) #boundary (singular) fit: see ?isSingular
+
+aictab(list(LmerM0, LmerM1, LmerM2, LmerM3, LmerM4, LmerM5), modnames = c("LmerM0", "LmerM1", "LmerM2", "LmerM3", "LmerM4", "LmerM5"))
+
+#M2 is preferred, followed closely by M3 and M1... we decided to go with M0
+#(see singular issues for many other models... all but M2 and M0)
+```
+
+We choose M0, the most complete model to facilitate comparison to development time
+```{r}
+LmerM0 <- lmer(as.numeric(Mass_Adult) ~ Sex * Site * Temperature * Photoperiod + 
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars_names)
+
+a <- Anova(LmerM0, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling()
+```
+
+```{r}
+s <- summary(LmerM0)
+s <- data.frame(s[["coefficients"]])
+
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling()
+```
+
+## New... mass adult as a function of development time
+```{r}
+l <- lm(as.numeric(Mass_Adult) ~ as.numeric(Age_Adult), data=Instars_Adult)
+summary(l)
+
+#l <- lmer(as.numeric(Mass_Adult) ~ as.numeric(Age_Adult) + (1|Female2), data=Instars_Adult)
+#summary(l)
+
+```
+So there isn't a significant relationship between age adult and mass. 
+If anything, it would be positive (delayed development enables more mass)
+-- but .163 is not < .05
+
+## Mass by instar
+
+### New approach (numeric instar)
+```{r}
+M_Instars_Adult <- Instars_names[is.na(Instars_names$Mass_Adult) == FALSE,]
+M_Instars_Adult_Long <-  melt(M_Instars_Adult[,c(1:8,18,21,24,30,54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "Sex", "Temperature", "Photoperiod")) #tracks the mass (value) when each individual reached each instar (variable)
+M_Instars_Adult_Long <- M_Instars_Adult_Long %>% rename(Instar=variable)
+
+#Make instar numeric
+M_Instars_Adult_Long$Instar=3
+M_Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_4th"]=4
+M_Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_5th"]=5
+M_Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_Adult"]=6
+
+```
+
+```{r}
+Lmer0.1 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod * Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+
+Lmer0.2 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + 
+                   (1|Female2/Individual)+(1|Instar), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+
+Lmer0.3 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar*Sex + Instar*Site + Instar*Temperature + Instar*Photoperiod + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+
+Lmer0.4 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long) 
+
+Lmer0.5 <- lmer(as.numeric(value) ~ Instar + (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long) #only one that doesn't get singularity issue
+
+
+aictab(list(Lmer0.1, Lmer0.2, Lmer0.3, Lmer0.4, Lmer0.5), modnames = c("Lmer0.1", "Lmer0.2", "Lmer0.3", "Lmer0.4", "Lmer0.5"))
+
+#once again worse than treating instar as categorical.
+
+
+```
+
+```{r}
+a <- Anova(Lmer0.3, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling()
+```
+```{r}
+s <- summary(Lmer0.3)
+s <- data.frame(s[["coefficients"]])
+
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() 
+```
+
+
+
+### ALTERATIVE OLD
+```{r}
+M_Instars_Adult <- Instars_names[is.na(Instars_names$Mass_Adult) == FALSE,]
+M_Instars_Adult_Long <-  melt(M_Instars_Adult[,c(1:8,18,21,24,30,54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "Sex", "Temperature", "Photoperiod")) #tracks the mass (value) when each individual reached each instar (variable)
+M_Instars_Adult_Long <- M_Instars_Adult_Long %>% rename(Instar=variable)
+#M_Instars_Adult_Long$Instar <- factor(M_Instars_Adult_Long$Instar, order = TRUE, levels =c('Mass_3rd', 'Mass_4th', 'Mass_5th', 'Mass_Adult')) #once again this line doesn't seem to make a difference
+
+Lmer0.1 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod * Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+
+Lmer0.2 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + 
+                   (1|Female2/Individual)+(1|Instar), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+
+Lmer0.3 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar*Sex + Instar*Site + Instar*Temperature + Instar*Photoperiod + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+
+Lmer0.4 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long) 
+
+Lmer0.5 <- lmer(as.numeric(value) ~ Instar + (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+
+
+aictab(list(Lmer0.1, Lmer0.2, Lmer0.3, Lmer0.4, Lmer0.5), modnames = c("Lmer0.1", "Lmer0.2", "Lmer0.3", "Lmer0.4", "Lmer0.5"))
+
+#best was 0.3, which includes instar and second-order instar interactions
+```
+```{r}
+a <- Anova(Lmer0.3, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling()
+```
+
+```{r}
+s <- summary(Lmer0.3)
+s <- data.frame(s[["coefficients"]])
+
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() 
+```
+
+## Shape stuff
+```{r}
+AdultsOnly <- Instars_names[is.na(Instars_names$Femur_Adult) == FALSE, ]
+AdultsOnly <- AdultsOnly[is.na(AdultsOnly$Sex) == FALSE, ]
+
+
+fem <- lm(Femur_Adult ~ Mass_Adult, data = AdultsOnly)
+summary(fem)
+
+masscubrt <- AdultsOnly$Mass_Adult^(1/3)
+fem2 <- lm(AdultsOnly$Femur_Adult ~ masscubrt)
+summary(fem2)
+
+pro <- lm(Pronotum_Adult ~ Mass_Adult, data=AdultsOnly)
+summary(pro)
+
+
+pro2 <- lm(AdultsOnly$Pronotum_Adult ~ masscubrt)
+summary(pro2)
+
+plot(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Femur_Adult)
+plot(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Pronotum_Adult)
+
+
+#THIS IS QUITE LIKELY OVERTHINKING
+#do I have to ask if that's still the case considering the other variables?
+#maybe -- try treating them as random effects or possibly main effects?
+
+#OK so I tried this and there were only a few much higher order things that 
+#were significant (just <.05) and I didn't even do model selection... 
+#I think we're good
+
+# Lmer0.1 <- lmer(AdultsOnly$Femur_Adult ~ masscubrt * AdultsOnly$Sex * AdultsOnly$Site * AdultsOnly$Temperature * AdultsOnly$Photoperiod + 
+#                    (1|AdultsOnly$Female2), na.action = 'na.omit', REML=FALSE)
+# summary(Lmer0.1)
+
+# Lmer0.1 <- lmer(AdultsOnly$Femur_Adult ~ masscubrt * AdultsOnly$Sex * AdultsOnly$Site * AdultsOnly$Temperature * AdultsOnly$Photoperiod +
+#                    (1|AdultsOnly$Female2), na.action = 'na.omit', REML=FALSE)
+# summary(Lmer0.1)
+# 
+# AIC(Lmer0.1, fem2) #ughhh tho... Lmer0.1 has a slightly better AIC (by 2.5)
+
+
+#AICc(Lmer0.1) #or by 25 with AICc
+#AICc(fem2)
+```
+
+
+# Preferred Body Temperature
+```{r}
+#Fill in later... can be found in 11_24
+```
+
+# Ctmin and Ctmax
+```{r}
+#Fill in later... can be found in 11_24
+```
+
+# Performance
+## Hopping
+
+Data
+```{r}
+HopRaw <- read.csv(file = "./data/Pdodge_PerformanceData1_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+
+#HopRaw <- HopRaw[is.na(HopRaw$TEST.TEMP1) == FALSE, ] #remove individuals that we couldn't measure
+
+Labels <- str_split_fixed(HopRaw[,1], "_", n = 4) #collect Temp and Light treatments
+HopRaw$Temp <- Labels[,2]
+HopRaw$Light <- Labels[,3]
+
+#stack TEST1, TEST2, and TEST3 in pseudo-longform (HopPL)
+Hop1 <- HopRaw[, c(1:6, 60:61, 7:19)]
+colnames(Hop1) <- c("ID", "Batch", "CC", "Site", "Species", "Sex", "Temp", "Light", "TestTemp", "Y0", "X0", "Y1", "X1", "Y2", "X2", "Y3", "X3", "Y4", "X4", "Y5", "X5")
+Hop2 <- HopRaw[, c(1:6, 60:61, 20:32)]
+colnames(Hop2) <- c("ID", "Batch", "CC", "Site", "Species", "Sex", "Temp", "Light", "TestTemp", "Y0", "X0", "Y1", "X1", "Y2", "X2", "Y3", "X3", "Y4", "X4", "Y5", "X5")
+Hop3 <- HopRaw[, c(1:6, 60:61, 33:45)]
+colnames(Hop3) <- c("ID", "Batch", "CC", "Site", "Species", "Sex", "Temp", "Light", "TestTemp", "Y0", "X0", "Y1", "X1", "Y2", "X2", "Y3", "X3", "Y4", "X4", "Y5", "X5")
+Hop4 <- HopRaw[, c(1:6, 60:61, 46:58)]
+colnames(Hop4) <- c("ID", "Batch", "CC", "Site", "Species", "Sex", "Temp", "Light", "TestTemp", "Y0", "X0", "Y1", "X1", "Y2", "X2", "Y3", "X3", "Y4", "X4", "Y5", "X5")
+
+HopPL <- rbind(Hop1, Hop2, Hop3, Hop4)
+
+#remove rows with no values
+HopPL <- HopPL[is.na(HopPL$TestTemp) == FALSE, ] #remove individuals that we couldn't measure
+
+# Convert measures from Feet_Inches to cm
+
+#Function to convert a single vector (input is a Feet_Inches vector and output is a CM vector)
+HopsToCM <- function(Vec) {
+  Div <- data.frame(str_split_fixed(Vec, "_", n = 2), stringsAsFactors = FALSE) #divide components
+  DivI <- 12 * as.numeric(Div[,1]) #convert feet to inches
+  Inches <- DivI + as.numeric(Div[,2]) #total inches
+  CM <- Inches * 2.5 #convert inches to cm
+  return(CM)
+}
+
+#Function to convert an entire dataframe (uses above function) (input is a DF of Feet_Inches vectors and output is a DF of CM vectors)
+HopsToCM_ALL <- function(DF) {
+  NewPoints <- foreach(i = 1:ncol(DF), .combine = cbind) %do%
+    HopsToCM(DF[,i])
+  NewPoints <- data.frame(NewPoints)
+  colnames(NewPoints) <- colnames(DF)
+  return(NewPoints)
+}
+
+#convert all measures to CM using above functions
+CM <- HopsToCM_ALL(HopPL[,10:21])
+
+#reattach metadata
+HopCM <- cbind(HopPL[,1:9], CM)
+
+
+# Calculate Euclidian Distances
+
+EucDist <- function (X1, Y1, X2, Y2) {sqrt((X2-X1)^2 + (Y2-Y1)^2)} #Input coordinates and output Euclidean Distance
+
+HopDist <- function(DF) {
+  Hop1 <- EucDist(DF$X0, DF$Y0, DF$X1, DF$Y1)
+  Hop2 <- EucDist(DF$X1, DF$Y1, DF$X2, DF$Y2)
+  Hop3 <- EucDist(DF$X2, DF$Y2, DF$X3, DF$Y3)
+  Hop4 <- EucDist(DF$X3, DF$Y3, DF$X4, DF$Y4)
+  Hop5 <- EucDist(DF$X4, DF$Y4, DF$X5, DF$Y5)
+  Hops <- data.frame(cbind(Hop1, Hop2, Hop3, Hop4, Hop5))
+  return(Hops)
+} #Input DF with numeric columns labeled "X0" "Y0" ... "X5" "Y5" and get dataframe of hop distances as output.  Uses EucDist above
+
+HopLengths <- HopDist(HopCM)
+
+#Add distances to full dataframe
+Hop <- cbind(HopCM, HopLengths)
+
+
+# Calculate summary statistics for hops (use "apply" to use function across rows rather than columns)
+Hop$Mean <- apply(HopLengths, 1, mean, na.rm = TRUE)
+Hop$SD <- apply(HopLengths, 1, sd, na.rm = TRUE)
+Hop$Min <- apply(HopLengths, 1, min, na.rm = TRUE)
+Hop$Max <- apply(HopLengths, 1, max, na.rm = TRUE)
+Hop$Median <- apply(HopLengths, 1, median, na.rm = TRUE)
+
+
+# Assign Factors
+Hop$Batch <- as.factor(Hop$Batch)
+Hop$Site <- as.factor(Hop$Site)
+Hop$Species <- as.factor(Hop$Species)
+Hop$Sex <- as.factor(Hop$Sex)
+Hop$Temp <- as.factor(Hop$Temp)
+Hop$Light <- as.factor(Hop$Light)
+Hop$TestTempF <- as.factor(Hop$TestTemp)
+Hop$Treat <- paste(Hop$Temp, Hop$Light, sep = "_")
+```
+
+Visualize
+```{r}
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+Give.N <- function(x){return(c(y = MaxSE(x)*1.1, label = length(x))) }
+
+#right now it's mean... should it be individual if that's how I'm doing the analysis?
+
+#hopping performance analyses
+ggplot(data = Hop, aes(x = TestTemp, y = Mean, col = Site, linetype = Sex)) +
+  rory_theme +
+  facet_grid(Light~Temp) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1, position = position_dodge(width = 3)) +
+  stat_summary(fun.y = mean, geom = "line", size = 2, position = position_dodge(width = 3)) +
+  ylab("Mean hopping distance (cm)") + xlab("Test temperature") +
+  scale_x_continuous(limits = c(5, 40), breaks = c(10, 17, 25, 35))
+```
+
+
+### Polynomial
+
+#### Working with means
+```{r}
+Hop_2 <- merge(Hop, Instars[,c(1,3,54)], by.x = "ID", by.y = "Individual") #Instars from the "GrowthRate_Script_2016"
+hist(Hop_2$Mean) #looks pretty normal
+
+#JULIA -- write self some notes on poly(): it's TestTemp + TestTemp^2, right?
+LmerH0 <- lmer(Mean ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Light + 
+                 (1|Female2), 
+               #REML = FALSE,
+               na.action = 'na.omit', data = Hop_2)
+
+LmH0 <- lm(Mean ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Light, data = Hop_2)
+
+#JULIA -- write self some notes on step()
+step(LmH0) 
+```
+
+```{r}
+#preferred model from step:
+LmH1 <- lm(Mean ~ poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temp + Light + 
+             poly(TestTemp, 2, raw = TRUE):Sex + poly(TestTemp, 2, raw = TRUE):Temp + Sex:Temp + Site:Temp + poly(TestTemp, 2, raw = TRUE):Light + Sex:Light + Site:Light + Temp:Light + 
+             poly(TestTemp, 2, raw = TRUE):Sex:Temp + poly(TestTemp, 2, raw = TRUE):Sex:Light + poly(TestTemp, 2, raw = TRUE):Temp:Light + Sex:Temp:Light + Site:Temp:Light + 
+             poly(TestTemp, 2, raw = TRUE):Sex:Temp:Light, 
+           data = Hop_2)
+
+
+LmerH1 <- lmer(Mean ~ poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temp + Light + 
+                 poly(TestTemp, 2, raw = TRUE):Sex + poly(TestTemp, 2, raw = TRUE):Temp + Sex:Temp + Site:Temp + poly(TestTemp, 2, raw = TRUE):Light + Sex:Light + Site:Light + Temp:Light + 
+                 poly(TestTemp, 2, raw = TRUE):Sex:Temp + poly(TestTemp, 2, raw = TRUE):Sex:Light + poly(TestTemp, 2, raw = TRUE):Temp:Light + Sex:Temp:Light + Site:Temp:Light + 
+                 poly(TestTemp, 2, raw = TRUE):Sex:Temp:Light +
+                 (1|Female2), 
+               #REML = FALSE,
+               na.action = 'na.omit', data = Hop_2)
+
+AIC(LmH1)
+AIC(LmerH1) #preferred and looks good after graphical validation
+
+
+```
+
+```{r}
+a <- Anova(LmerH1, type = 3) #The 4-way interaction between the polynomial and sex, temp, and light is significant.  Everything is having effects, pretty much
+```
+
+#### Working with all data
+```{r}
+#make data long form
+Hop_Long <- melt(Hop_2[, c(1:9, 22:26, 33:35)], id.vars = c("ID", "Batch", "CC", "Site", "Species", "Sex", "Temp", "Light", "Treat", "Female", "Female2", "TestTemp"))
+
+#full model (huge)
+
+LmerL_H0 <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Light + 
+                   #(1|variable/ID/Female2), #original
+                   #(1|Female2/ID/variable), #this gave a singularity issue 
+                   (1|Female2/ID), #+ (1|variable), #so this did work -- might wanna double check it!
+                 #REML = FALSE,
+                 na.action = 'na.omit', data = Hop_Long)
+
+# LmerL_H0.2 <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Light + 
+#                    #(1|variable/ID/Female2), #original
+#                    #(1|Female2/ID/variable), #this gave a singularity issue 
+#                    (1|Female2/ID), #+ (1|variable), #so this did work -- might wanna double check it!
+#                  REML = FALSE,
+#                  na.action = 'na.omit', data = Hop_Long)
+#AICc(LmerL_H0)
+#AICc(LmerL_H0.2) #gives better AICc and a singular fit warning
+
+
+#Notes on REML https://stats.stackexchange.com/questions/272633/how-to-decide-whether-to-set-reml-to-true-or-false#:~:text=I%20have%20found%20a%20web,you%20can%20use%20maximum%20likelihood.
+
+#Another resource (tried to skim but would need a closer look) http://users.stat.umn.edu/~gary/classes/5303/handouts/REML.pdf
+
+#they yield very similar ANOVA tables. I'm going to go with REML=TRUE because things online say to generally do so (when not comparing models). That said, the others are REML=FALSE (since they do use model selection), so maybe I should do that to be consistent.
+
+
+```
+
+```{r}
+a <- Anova(LmerL_H0, type=3)
+
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("tabs/tabs2.png")
+```
+
+```{r}
+s <- summary(LmerL_H0)
+s <- data.frame(s[["coefficients"]])
+
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling()
+```
+
+
+
+## Leaf eating
+```{r}
+FeedRaw <- read.csv(file = "./data/FeedingRate_Data_All_03152017.csv", header = TRUE, stringsAsFactors = FALSE)
+
+##### Bookkeeping ########
+
+#bring in hopping data which have sex
+HopRaw <- read.csv(file = "./data/Pdodge_PerformanceData1_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE) #remove individuals that we couldn't measure
+#add sex with merge
+FeedRaw <- merge(FeedRaw, HopRaw[,c(1,6)], by.x = "Individual.ID..EGGPOD..HATCHING._TEMP_LIGHT_SPECIES_SITE.", by.y = "Individual", all.x = TRUE)
+#divide super label into informative treatments
+Labels <- str_split_fixed(FeedRaw[,1], "_", n = 4) #collect Temp and Light treatments
+FeedRaw$Temp <- Labels[,2]
+FeedRaw$Light <- Labels[,3]
+FeedRaw$Population <- Labels[,4]
+FeedRaw$ID <- Labels[,1]
+ID_Labels <- str_split_fixed(FeedRaw$ID, "[.]", n = 2)
+FeedRaw$Mom <- ID_Labels[,1]
+FeedRaw$Species <- "dodg"
+
+#stack Feed1, Feed2, and Feed3 in pseudo-longform (FeedPL)
+Feed1 <- FeedRaw[, c(31:33, 27:30, 1:2, 3:10)]
+colnames(Feed1) <- c("ID", "Mom", "Species", "Sex", "Temp", "Light", "Site", "FULL_ID", "Batch", "Date", "TestTemp", "SubBatch", "Position", "Area1", "Area2", "Area3", "Area4")
+Feed2 <- FeedRaw[, c(31:33, 27:30, 1:2, 11:18)]
+colnames(Feed2) <- c("ID", "Mom", "Species", "Sex", "Temp", "Light", "Site", "FULL_ID", "Batch", "Date", "TestTemp", "SubBatch", "Position", "Area1", "Area2", "Area3", "Area4")
+Feed3 <- FeedRaw[, c(31:33, 27:30, 1:2, 19:26)]
+colnames(Feed3) <- c("ID", "Mom", "Species", "Sex", "Temp", "Light", "Site", "FULL_ID", "Batch", "Date", "TestTemp", "SubBatch", "Position", "Area1", "Area2", "Area3", "Area4")
+
+FeedPL <- rbind(Feed1, Feed2, Feed3)
+
+#remove rows with no values or missing sex
+FeedPL <- FeedPL[is.na(FeedPL$TestTemp) == FALSE, ] #remove individuals that we couldn't measure
+FeedPL <- FeedPL[is.na(FeedPL$Sex) == FALSE & FeedPL$Sex!= "", ]
+
+#####Convert Measured Areas to Amounts Eaten#######
+FeedPL$P1_Consumed <- FeedPL$Area1-FeedPL$Area2
+FeedPL$P2_Consumed <- FeedPL$Area3-FeedPL$Area4
+FeedPL$Tot_Consumed <- FeedPL$P1_Consumed + FeedPL$P2_Consumed
+
+####### Assign Factors ######
+
+FeedPL$Batch <- as.factor(FeedPL$Batch)
+FeedPL$Site <- as.factor(FeedPL$Site)
+FeedPL$Species <- as.factor(FeedPL$Species)
+FeedPL$Sex <- as.factor(FeedPL$Sex)
+FeedPL$Temp <- as.factor(FeedPL$Temp)
+FeedPL$Light <- as.factor(FeedPL$Light)
+FeedPL$TestTempF <- as.factor(FeedPL$TestTemp)
+FeedPL$Treat <- paste(FeedPL$Temp, FeedPL$Light, sep = "_")
+
+```
+
+```{r}
+hist(FeedPL$Tot_Consumed) #looks pretty normal... does it?
+```
+
+
+### Polynomial
+```{r}
+
+#modified nesting to be (1|Mom/ID)... pretty sure the R notation changed 
+
+#scaled data to help lmer
+X = scale(cbind(FeedPL$Tot_Consumed, FeedPL$TestTemp, FeedPL$Sex, FeedPL$Site, FeedPL$Temp, FeedPL$Light)) #julian date of first clutch
+
+LmerF0 <- lmer(Tot_Consumed ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Light + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPL) 
+
+LmerF1 <- lmer(Tot_Consumed ~ TestTemp * Sex * Site * Temp * Light + 
+                 (1|Mom/ID), 
+               #na.action = 'na.omit', #not sure why this is the only one like this
+               REML = FALSE,
+               data = FeedPL) 
+
+LmerF2 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^4 + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPL) 
+
+LmerF2.1 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^4 - TestTemp:Sex:Temp:Light - TestTemp:Sex:Site:Light + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPL) 
+
+LmerF3 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^3 + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPL) 
+
+LmerF3.1 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^3 +Sex:Temp:Light:Site + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPL)
+
+LmerF3.2 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temp + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPL)
+
+LmerF3.5 <- lmer(Tot_Consumed ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temp + Light)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temp + 
+                   (1|Mom/ID), 
+                 REML = FALSE, #I un-commented this!
+                 na.action = 'na.omit', data = FeedPL) 
+#^fixed-effect model matrix is rank deficient so dropping 5 columns / coefficients
+#seems it's not too concerning tho https://stackoverflow.com/questions/37090722/lme4lmer-reports-fixed-effect-model-matrix-is-rank-deficient-do-i-need-a-fi
+
+LmerF3.3 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^2 + TestTemp:Sex:Site + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPL)
+
+LmerF3.4 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^2 + TestTemp:Sex:Site - TestTemp:Light + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPL)
+
+LmerF4 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^2 + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPL)
+
+LmerF4.1 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^2 + Site:Temp:Light + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPL)
+
+LmerF4.2 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^2 - Temp:Light + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPL)
+
+LmerF5 <- lmer(Tot_Consumed ~ TestTemp + Sex + Site + Temp + Light + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPL)
+
+#AIC comparisons should be done on models with "REML = FALSE"
+aictab(list(LmerF0, LmerF1, LmerF2, LmerF2.1, LmerF3, LmerF3.1, LmerF3.2, LmerF3.3, LmerF3.4, LmerF3.5, LmerF4, LmerF4.1, LmerF4.2, LmerF5), modnames = c("LmerF0", "LmerF1", "LmerF2", "LmerF2.1", "LmerF3", "Lmer3.1", "Lmer3.2", "Lmer3.3", "Lmer3.4", "Lmer3.5", "LmerF4", "LmerF4.1", "LmerF4.2", "LmerF5")) #LmerF1 is supported by far #something Rory said that I don't understand
+
+#singular fit warnings
+
+#why does he say 3.2 is selected when 3.5 appears higher?
+```
+
+
+```{r}
+#from his comments , here he seems to look at them with REML=TRUE... not really sure
+
+TLmerF1 <- lmer(Tot_Consumed ~ TestTemp * Sex * Site * Temp * Light + 
+                 (1|Mom/ID), 
+               #na.action = 'na.omit', #not sure why this is the only one like this
+               #REML = FALSE,
+               data = FeedPL) 
+
+TLmerF2 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^4 + 
+                 (1|Mom/ID), 
+               #REML = FALSE,
+               na.action = 'na.omit', data = FeedPL) 
+
+TLmerF2.1 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^4 - TestTemp:Sex:Temp:Light - TestTemp:Sex:Site:Light + 
+                   (1|Mom/ID), 
+                 #REML = FALSE,
+                 na.action = 'na.omit', data = FeedPL) 
+
+TLmerF3.2 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temp + 
+                   (1|Mom/ID), 
+                 #REML = FALSE,
+                 na.action = 'na.omit', data = FeedPL)
+
+TLmerF3.5 <- lmer(Tot_Consumed ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temp + Light)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temp + 
+                   (1|Mom/ID), 
+                 #REML = FALSE, #I un-commented this!
+                 na.action = 'na.omit', data = FeedPL)
+
+
+# #P-values should be compared for models with REML = TRUE
+# Anova(TLmerF1, type = 3) #The 4-way interaction between the TestTemp, Site, temp, and light is significant.  Everything is having effects, pretty much
+# Anova(TLmerF2, type = 3)
+# Anova(TLmerF2.1, type = 3)
+# Anova(TLmerF3.2, type = 3)
+# Anova(TLmerF3.5, type = 3)
+```
+ANOVA Table for the best performing one 3.5 (I'm sticking with REML=FALSE)
+```{r}
+a <- Anova(LmerF3.5, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling()
+
+```
+
+```{r}
+
+```
+
