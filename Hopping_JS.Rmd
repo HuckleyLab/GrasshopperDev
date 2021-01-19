@@ -18,6 +18,8 @@ library(lsmeans)
 library(reshape2)
 library(MASS)
 library(nls2)
+library(tidyverse)
+library(kableExtra)
 
 source('Functions.R')
 setwd("./data/")
@@ -249,9 +251,11 @@ LmerL_H0 <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Lig
                    (1|Female2/ID) + (1|variable), #so this did work -- might wanna double check it!
                  #REML = FALSE,
                  na.action = 'na.omit', data = Hop_Long)
-#the 5-way interaction is significant, so should work from the full model
+#the 5-way interaction is significant, so should work from the full model (says Rory -- should I check this?)
 #JULIA (with original which is now commented out): I get this error: Model failed to converge with max|grad| = 0.00744655 (tol = 0.002, component 1)... I found this: https://stackoverflow.com/questions/53034261/warning-lme4-model-failed-to-converge-with-maxgrad
 #JULIA: understanding (1|variable/ID/Female2) -- which hop it is (multiple trials: 1, 2, etc.) is nested within the grasshopper is nested within the mother... I think the order is flipped from how it should be. But then (similar to the instar analysis) this flipping it didn't work... see what I have now
+
+#Do we really need 1|variable? It's less important than instar but they might get more tired after a few hops so order probably still matters... don't know if it needs to be nestsed within anything else (and hey, as I have it, it isn't)
 
 ObjL0<-data.frame(summary(lsmeans(LmerL_H0, ~ TestTemp*Sex*Site*Temp*Light, at = list(TestTemp = c(25,17,10,35)), type = "response")))
 #JULIA: Note: D.f. calculations have been disabled due to # of obs
@@ -268,6 +272,20 @@ ggplot(data = ObjL0, aes(y = lsmean, x = TestTemp, col = Site, shape = Sex, line
 #JULIA: Error in FUN(X[[i]], ...) : object 'upper.CL' not found 
 #fixed by changing to asymp.UCL (and similar for ymin)
 ```
+```{r}
+
+a <- Anova(LmerL_H0, type=3)
+
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("tabs/tabs2.png")
+```
+
 Load PBT to enable next step
 ```{r}
 #double check -- might be more stuff than necessary!
