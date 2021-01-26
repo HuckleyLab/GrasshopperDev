@@ -203,7 +203,7 @@ a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
 a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling()
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("devinstarnumericanova.png")
 
 ```
 
@@ -219,7 +219,7 @@ s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
 s$`Pr...t..` <- as.character(s$`Pr...t..`)
 s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling()
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("devinstarnumericcoeff.png")
 ```
 
 
@@ -412,7 +412,7 @@ Lmer0.5 <- lmer(as.numeric(value) ~ Instar + (1|Female2/Individual), na.action =
 
 aictab(list(Lmer0.1, Lmer0.2, Lmer0.3, Lmer0.4, Lmer0.5), modnames = c("Lmer0.1", "Lmer0.2", "Lmer0.3", "Lmer0.4", "Lmer0.5"))
 
-#once again worse than treating instar as categorical.
+#once again worse than treating instar as categorical in terms of AIC.
 
 
 ```
@@ -426,7 +426,7 @@ a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
 a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling()
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("massinstarnumericanova.png")
 ```
 ```{r}
 s <- summary(Lmer0.3)
@@ -440,7 +440,7 @@ s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
 s$`Pr...t..` <- as.character(s$`Pr...t..`)
 s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() 
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("massinstarnumericcoeff.png")
 ```
 
 
@@ -759,8 +759,19 @@ a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
 a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("tabs/tabs2.png")
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("hoppinganova.png")
 ```
+This calls for some plotting of effects
+```{r}
+plot_model(LmerL_H0, type="pred", terms=c("TestTemp","Light", "Temp", "Site", "Sex"), show.data=FALSE)
+
+plot_model(LmerL_H0, type="pred", show.data=FALSE)
+plot_model(LmerL_H0, type="pred", terms=c("Temp", "Light"), show.data=FALSE)
+
+
+```
+
+
 
 ```{r}
 s <- summary(LmerL_H0)
@@ -774,7 +785,7 @@ s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
 s$`Pr...t..` <- as.character(s$`Pr...t..`)
 s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling()
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("hoppingcoeff.png")
 ```
 
 
@@ -833,6 +844,18 @@ FeedPL$Treat <- paste(FeedPL$Temp, FeedPL$Light, sep = "_")
 
 ```{r}
 hist(FeedPL$Tot_Consumed) #looks pretty normal... does it?
+```
+Visualize
+```{r}
+#Total leaf area consumed
+ggplot(data = FeedPL, aes(x = TestTemp, y = Tot_Consumed, col = Site)) +
+  rory_theme +
+  facet_grid(Sex~Temp + Light) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1, position = position_dodge(width = 5)) +
+  stat_summary(fun.y = mean, geom = "line", size = 2, position = position_dodge(width = 5)) +
+  stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = 5), size = 5) +
+  ylab("Leaf area consumed (cm2, 8h)") + xlab("Test temperature") +
+  scale_x_continuous(limits = c(15, 45), breaks = c(20, 30, 40))
 ```
 
 
@@ -963,7 +986,7 @@ TLmerF3.5 <- lmer(Tot_Consumed ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + T
 # Anova(TLmerF3.2, type = 3)
 # Anova(TLmerF3.5, type = 3)
 ```
-ANOVA Table for the best performing one 3.5 (I'm sticking with REML=FALSE)
+ANOVA Table for the best performing one, 3.5 (I'm sticking with REML=FALSE)
 ```{r}
 a <- Anova(LmerF3.5, type=3)
 a$Significance <- "   "
@@ -973,9 +996,28 @@ a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
 a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling()
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("feedinganova.png")
 
 ```
+
+```{r}
+s <- summary(LmerL_H0)
+s <- data.frame(s[["coefficients"]])
+
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("feedingcoeff.png")
+
+```
+
+
+Another thing to think about -- crop loading vs processing (not just total time)
 
 ```{r}
 
