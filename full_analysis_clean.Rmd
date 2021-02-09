@@ -33,12 +33,15 @@ library(tidyverse)
 library(knitr)
 library(afex)
 library(RColorBrewer)
+library(ggeffects)
+library(cowplot)
+library(stringr)
 
 #webshot::install_phantomjs()
 library(kableExtra)
 
 source('Functions.R')
-#setwd("./data/") #this will be removed... just a reminder to put ./data everywhere
+
 ```
 
 Load and prepare "Instars" dataframe
@@ -79,7 +82,256 @@ Instars$Female2 <- as.factor(paste(Instars$Female, Instars$Site, sep = "_"))
 #str(Instars)
 
 ```
-The most notable variables in "Instar" here are...
+
+```{r}
+#what rory did
+
+Instars$Survive <- ifelse(is.na(Instars$Age_Adult) == TRUE, 0, 1)
+
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+
+Give.N <- function(x){
+  return(c(y = MaxSE(x)*1.01, label = length(x))) 
+}
+
+ggplot(data = Instars, aes(x = Site, y = Survive, shape = sex, linetype = sex)) +
+  rory_theme +
+  facet_wrap(~Temp+Light, nrow = 1) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Survival frequency") + xlab("Site")
+
+
+MS0 <- glmmPQL(Survive ~ sex * Site * Temp * Light, 
+               random = (~ 1|Female2), 
+               family = binomial, data = Instars, niter = 100)
+
+MS1 <- glmmPQL(Survive ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                 Site:Light:Temp,
+               random = (~ 1|Female2), 
+               family = binomial, data = Instars, niter = 100)
+
+MS2 <- glmmPQL(Survive ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light,
+               random = (~ 1|Female2), family = binomial, data = Instars, niter = 100)
+
+MS3 <- glmmPQL(Survive ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + 
+                 Site:Temp:Light, 
+               random = (~ 1|Female2), 
+               family = binomial, data = Instars, niter = 100)
+
+MS4 <- glmmPQL(Survive ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + 
+                 Site:Temp:Light,
+               random = (~ 1|Female2), 
+               family = binomial, data = Instars, niter = 100)
+
+MS5 <- glmmPQL(Survive ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light + 
+                 Site:Temp:Light,
+               random = (~ 1|Female2), 
+               family = binomial, data = Instars, niter = 100)
+
+MS6 <- glmmPQL(Survive ~ sex + Site + Temp + Light + 
+                 sex:Site + sex:Light + Site:Temp + Site:Light + Temp:Light,
+               random = (~ 1|Female2), family = binomial, data = Instars, niter = 100)
+
+MS7 <- glmmPQL(Survive ~ sex + Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light,
+               random = (~ 1|Female2), family = binomial, data = Instars, niter = 100)
+
+MS8 <- glmmPQL(Survive ~ Site + Temp + Light + 
+                 Site:Temp + Site:Light + Temp:Light,
+               random = (~ 1|Female2), family = binomial, data = Instars, niter = 100)
+
+MS9 <- glmmPQL(Survive ~ sex + Site + Temp + Light + 
+                 Site:Temp + Temp:Light,
+               random = (~ 1|Female2), family = binomial, data = Instars, niter = 100)
+
+MS10 <- glmmPQL(Survive ~ sex + Site + Temp + Light + 
+                  Site:Temp,
+                random = (~ 1|Female2), family = binomial, data = Instars, niter = 100)
+
+MS11 <- glmmPQL(Survive ~ sex + Site + Temp + 
+                  Site:Temp,
+                random = (~ 1|Female2), family = binomial, data = Instars, niter = 100)
+
+Anova(MS0, type = 3)
+Anova(MS1, type = 3)
+Anova(MS2, type = 3)
+Anova(MS3, type = 3)
+Anova(MS4, type = 3)
+Anova(MS5, type = 3)
+Anova(MS6, type = 3)
+Anova(MS7, type = 3)
+Anova(MS8, type = 3)
+Anova(MS9, type = 3)
+Anova(MS10, type = 3)
+Anova(MS11, type = 3)
+
+```
+```{r}
+
+#what I did -- similar but uses glmer and compares AIC
+
+#all interaction terms
+MS0 <- glmer(
+  Survive ~ sex * Site * Temp * Light + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+#All 1st and 2nd order + Site:Light:Temp
+MS1 <- glmer(
+  Survive ~ sex + Site + Temp + Light + 
+    sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+    Site:Light:Temp + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+#All 1st and 2nd order
+MS2 <- glmer(
+  Survive ~ sex + Site + Temp + Light + 
+    sex:Site + sex:Temp + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+# Site*Temp*Light + sex
+MS3 <- glmer(
+  Survive ~ sex + Site + Temp + Light + 
+    Site:Temp + Site:Light + Temp:Light + 
+    Site:Temp:Light + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+#Site*Temp*Light (no sex)
+MS4 <- glmer(
+  Survive ~ Site + Temp + Light + 
+    Site:Temp + Site:Light + Temp:Light + 
+    Site:Temp:Light + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+#Rory's MS5 was a duplicate of MS4
+
+#All first and second order except sex:Temp
+MS6 <- glmer(
+  Survive ~ sex + Site + Temp + Light + 
+    sex:Site + sex:Light + Site:Temp + Site:Light + Temp:Light + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+#1st and second order of site temp and light, just first order sex 
+MS7 <- glmer(
+  Survive ~ sex + Site + Temp + Light + 
+    Site:Temp + Site:Light + Temp:Light + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+#first and second order site temp light
+MS8 <- glmer(
+  Survive ~ Site + Temp + Light + 
+    Site:Temp + Site:Light + Temp:Light + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+#all first order, second: just site:temp and temp:light
+MS9 <- glmer(
+  Survive ~ sex + Site + Temp + Light + 
+    Site:Temp + Temp:Light + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+#all first order, second: just site:temp
+MS10 <- glmer(
+  Survive ~ sex + Site + Temp + Light + 
+    Site:Temp + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+#1st order: omit light, second: just site:temp
+MS11 <- glmer(
+  Survive ~ sex + Site + Temp + 
+    Site:Temp + 
+    (1 | Female2), 
+  data = Instars, 
+  family = binomial(link = "logit")
+)
+
+
+aictab(list(MS0, MS1, MS2, MS3, MS4, MS6, MS7, MS8, MS9, MS10, MS11), modnames = c("MS0", "MS1", "MS2", "MS3", "MS4", "MS6", "MS7", "MS8", "MS9", "MS10", "MS11"))
+
+#a lot of comparable models in terms of AIC
+
+#MS11 -- sex + Site + Temp + Site:Temp... delta AICc 0... nested in MS9, MS10
+#MS9 -- sex + Site + Temp + Light + Site:Temp + Temp:Light... delta AICc 1.41 -- elim
+#MS10 -- sex + Site + Temp + Light + Site:Temp... delta AICc 1.87, nested in MS9 -- elim
+#MS8 Site + Temp + Light + Site:Temp + Site:Light + Temp:Light... delta AICc 2.28 -- less competitive bc >2
+
+#nothing quite significant -- no p values under .05
+Anova(MS11, type = 3) 
+summary(MS11) 
+
+##for MS8 there's one p value in the summary that is <.05 (SiteB1:TempLV significantly higher)
+#Anova(MS8, type = 3) #nothing quite significant -- no p values under .05
+#summary(MS8)
+
+```
+
+
+
+
+```{r}
+Instar_death_test <- Instars[which(Instars$sex %in% c("F","M")),]
+
+#coding Death_Instar adult as 6... looking at effect on 
+Instar_death_test$Death_Instar[Instar_death_test$Death_Instar=="A"]=6 
+Instar_death_test$Death_Instar <- as.numeric(Instar_death_test$Death_Instar)
+
+hist(as.numeric(Instar_death_test$Death_Instar))
+```
+
+```{r}
+# New facet label names for sex variable
+sex.labs <- c("Female", "Male")
+names(sex.labs) <- c("F", "M")
+
+# New facet label names for supp variable
+Light.labs <- c("Long day length", "Short day length")
+names(Light.labs) <- c("L", "S")
+
+ggplot(data = Instar_death_test, aes(x = Site, y = Death_Instar, color = Temp)) +
+#  rory_theme +
+  facet_grid(sex~Light, labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+  geom_boxplot(size = .75) +
+  geom_jitter(alpha = .5)
+```
+
+
 
 # Dependent variable: Development time
 ## At adulthood
@@ -120,9 +372,13 @@ ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp)) +
   ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
 ```
 
+
+
+
+
 Look at the distribution -- it looks fairly normal
 ```{r}
-
+hist(as.numeric(na.omit(Instars$Age_Adult)), breaks=10)
 ```
 
 
@@ -203,7 +459,7 @@ a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
 a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("devinstarnumericanova.png")
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("devinstarnumericanova.png")
 
 ```
 
@@ -219,10 +475,10 @@ s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
 s$`Pr...t..` <- as.character(s$`Pr...t..`)
 s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("devinstarnumericcoeff.png")
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("devinstarnumericcoeff.png")
 ```
 
-
+DON'T NEED TO RUN OLD ALTERNATIVE -- skip to line 276
 ### OLD ALTERNATIVE
 ```{r}
 
@@ -272,10 +528,6 @@ aictab(list(Lmer0.1, Lmer0.2, Lmer0.3, Lmer0.4), modnames = c("Lmer0.1", "Lmer0.
 # Mass 
 ## Adult mass
 
-Check normal(?)
-```{r}
-
-```
 
 Visualize
 ```{r}
@@ -286,6 +538,11 @@ ggplot(data = Instars_names, aes(x = Site, y = as.numeric(Mass_Adult), color = T
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
   ylab("Mass as adult (g)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
+
+Check normal... well so it's not the most normal but at the moment I treat it like it is
+```{r}
+hist(as.numeric(Instars$Mass_Adult), breaks = 10)
 ```
 
 Model selection / AIC comparison 
@@ -376,7 +633,7 @@ summary(l)
 ```
 So there isn't a significant relationship between age adult and mass. 
 If anything, it would be positive (delayed development enables more mass)
--- but .163 is not < .05
+-- but .2 is not < .05
 
 ## Mass by instar
 
@@ -395,11 +652,15 @@ M_Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_Adult"]=6
 ```
 
 ```{r}
+
+
 Lmer0.1 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod * Instar + 
                    (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
 
-Lmer0.2 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + 
-                   (1|Female2/Individual)+(1|Instar), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+Lmer0.2 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod +
+                   (1|Female2/Individual)+(1|Instar)
+                , na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+#^ not sure why I tried this -- I want to see interactions with instar, and this won't show me that
 
 Lmer0.3 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Instar*Sex + Instar*Site + Instar*Temperature + Instar*Photoperiod + 
                    (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
@@ -410,15 +671,17 @@ Lmer0.4 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod + Ins
 Lmer0.5 <- lmer(as.numeric(value) ~ Instar + (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long) #only one that doesn't get singularity issue
 
 
-aictab(list(Lmer0.1, Lmer0.2, Lmer0.3, Lmer0.4, Lmer0.5), modnames = c("Lmer0.1", "Lmer0.2", "Lmer0.3", "Lmer0.4", "Lmer0.5"))
+aictab(list(Lmer0.1, Lmer0.3, Lmer0.4, Lmer0.5), modnames = c("Lmer0.1", "Lmer0.3", "Lmer0.4", "Lmer0.5"))
 
-#once again worse than treating instar as categorical in terms of AIC.
+#once again AICs are worse than treating instar as categorical
+
+#I go with Lmer0.1 anyway to be consistent with dev instar analysis
 
 
 ```
 
 ```{r}
-a <- Anova(Lmer0.3, type=3)
+a <- Anova(Lmer0.1, type=3)
 a$Significance <- "   "
 a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
 a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
@@ -426,10 +689,10 @@ a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
 a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("massinstarnumericanova.png")
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("massinstarnumericanova.png") 
 ```
 ```{r}
-s <- summary(Lmer0.3)
+s <- summary(Lmer0.1)
 s <- data.frame(s[["coefficients"]])
 
 
@@ -440,11 +703,11 @@ s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
 s$`Pr...t..` <- as.character(s$`Pr...t..`)
 s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("massinstarnumericcoeff.png")
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("massinstarnumericcoeff.png")
 ```
 
 
-
+DON'T NEED TO RUN OLD ALTERNATIVE -- skip to line 509
 ### ALTERATIVE OLD
 ```{r}
 M_Instars_Adult <- Instars_names[is.na(Instars_names$Mass_Adult) == FALSE,]
@@ -498,6 +761,7 @@ options(knitr.kable.NA = '')
 kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() 
 ```
 
+
 ## Shape stuff
 ```{r}
 AdultsOnly <- Instars_names[is.na(Instars_names$Femur_Adult) == FALSE, ]
@@ -520,6 +784,9 @@ summary(pro2)
 
 plot(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Femur_Adult)
 plot(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Pronotum_Adult)
+
+#hmm so possible issue with this plot is if I don't control for the different treatments
+#the it could actually be a series of not linear relationships (like for example a series of blobs)
 
 
 #THIS IS QUITE LIKELY OVERTHINKING
@@ -548,12 +815,490 @@ plot(AdultsOnly$Mass_Adult^(1/3), AdultsOnly$Pronotum_Adult)
 
 # Preferred Body Temperature
 ```{r}
-#Fill in later... can be found in 11_24
+#upload PBT data
+PBT <- read.csv(file = "./data/PBTdata_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+
+str(PBT)
+
+# Clean up the data 
+
+#collect treatment labels
+Labels <- str_split_fixed(PBT[,1], "_", n = 4) #collect Temp and Light treatments
+PBT$Temp <- Labels[,2]
+PBT$Light <- Labels[,3]
+PBT$Site <- Labels[,4]
+
+HopRaw <- read.csv(file = "./data/Pdodge_PerformanceData1_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+SexData <- data.frame(HopRaw$Individual, HopRaw$sex, stringsAsFactors = FALSE)
+
+PBT <- merge(PBT, SexData, by.x =  colnames(PBT)[1], by.y = colnames(SexData)[1])
+colnames(PBT)[27] <- "Sex"
+PBT$Sex <- ifelse(PBT$Sex == "", NA, PBT$Sex)
+
+
+#trim out missing data (rows with no values)
+PBT <- PBT[is.na(PBT$t_enter_grad) == FALSE, ]
+
+# calculate median and mean TB for each individual
+
+TB_df <- data.frame(PBT$Tb_1, PBT$Tb_2, PBT$Tb_3, PBT$Tb_4, PBT$Tb_5, PBT$Tb_6)
+
+PBT$Tb_Mean <- apply(TB_df, 1, mean, na.rm = TRUE)
+PBT$Tb_Median <- apply(TB_df, 1, median, na.rm = TRUE)
+PBT$Tb_sd <- apply(TB_df, 1, sd, na.rm = TRUE)
+
+# Sample Size
+
+PBT$Treat <- paste(PBT$Temp, PBT$Light, sep = "_")
+table(PBT[,c(26,27,31)]) #results collated in google drive file "Performance Sample Sizes"
 ```
 
-# Ctmin and Ctmax
+```{r, echo=FALSE}
+##### Analyses #####
+PBT_2 <- merge(PBT, Instars[,c(1,3,54)], by.x = "Individual", by.y = "Individual")
+PBT_Long <- melt(PBT_2[,c(1,3,10,12,14,16,18,20,24:27,31,33)], id.var = c("Individual", "TprefBATCH", "Female2", "Temp", "Light", "Site", "Sex", "Treat"))
+PBT_Long$Temp <- as.factor(PBT_Long$Temp)
+PBT_Long$Light <- as.factor(PBT_Long$Light)
+PBT_Long$Site <- as.factor(PBT_Long$Site)
+PBT_Long$Sex <- as.factor(PBT_Long$Sex)
+PBT_Long$Individual <- as.factor(PBT_Long$Individual)
+
+
+hist(PBT_Long$value) #looks quite normal
+
+LmerPBT.0 <- lmer(value ~ Sex * Site * Temp * Light + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long) #initially attempted to include batch and female, but so little variation that the scales were off and the model showed errors
+
+LmerPBT.1 <- lmer(value ~ Sex + Site + Temp + Light + 
+                    Sex:Site + Sex:Temp + Sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                    Site:Light:Temp +
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.2 <- lmer(value ~ Sex + Site + Temp + Light + 
+                    Sex:Site + Sex:Temp + Sex:Light + Site:Temp + Site:Light + Temp:Light + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.3 <- lmer(value ~ Sex + Site + Temp + Light + 
+                    Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.4 <- lmer(value ~ Site + Temp + Light + 
+                    Site:Temp + Site:Light + Temp:Light + Site:Temp:Light +
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.5 <- lmer(value ~ Site + Temp + Light + 
+                    Site:Temp + Site:Light + Temp:Light +
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.6 <- lmer(value ~ Sex + Site + Temp + Light + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, #this was initially commented out
+                  data = PBT_Long)
+
+LmerPBT.7 <- lmer(value ~ Site + Temp + Light + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+aictab(list(LmerPBT.0, LmerPBT.1, LmerPBT.2, LmerPBT.3, LmerPBT.4, LmerPBT.5, LmerPBT.6, LmerPBT.7), modnames = c("LmerPBT.0", "LmerPBT.1", "LmerPBT.2", "LmerPBT.3", "LmerPBT.4", "LmerPBT.5", "LmerPBT.6", "LmerPBT.7"))
+#LmerPBT.6 is the preferred model, delta AIC = 7.14 (no interactions)
+
+```
+
+The best model (ΔAICc >5)for preferred body temperature was one of just the main fixed effects (sex, site, temperature regime, and light regime) and the random effect of individual (for repeated measures of the same grasshopper). It makes sense that a relatively simple model was selected given that none of these effects were significant predictors of preferred body temperature.
+
+Figure 4
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+
+Give.N <- function(x){
+  return(c(y = MaxSE(x)*1.01, label = length(x))) 
+}
+
+
+ggplot(data = PBT %>% filter(!is.na(Sex)), aes(x = Site, y = Tb_Mean, color = Temp)) +
+#  rory_theme +
+  facet_grid(Sex~Light, labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 4) +
+  ylab("Mean PBT (C)") + xlab("Site")+scale_color_manual(name="Temp var", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+
+```
+Mean preferred body temperature of lab-reared male and female (rows) grasshoppers whose mothers came from different sites (y-axis). Photoperiod (columns) and temperature variance (rows) were varied. The numbers by the points represent sample sizes.
+
+Table 4
+```{r, echo=FALSE}
+a <- Anova(LmerPBT.6, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("tabs/tab3.png")
+```
+
+None of the main effects were significant. There are arguably nearly significant trends towards low temperature variance and long photoperiod decreasing preferred temperature ($\chi$^2^~1~=3.049, p=.0808; $\chi$^2^~1~=3.120, p=.0773, Table 4)
+
+```{r, include=FALSE}
+#I selected the prefered model which did not have these interactions so not sure whether to explore this or not
+
+# lsmeans(LmerPBT.6, pairwise ~ Site|Temp+Light) #Sites never significantly differ from one another
+# lsmeans(LmerPBT.6, pairwise ~ Light|Temp) #L and S differ in LV only
+# lsmeans(LmerPBT.6, pairwise ~ Temp|Light) #HV and LV differ, only in long days and primarily for C1
+```
+
+Supplement
+S4
+```{r, echo=FALSE}
+s <- summary(LmerPBT.6)
+kable(s[["coefficients"]], digits=3, format="html") %>% kable_styling() #%>% save_kable("tabs/PBTSummary.png")
+```
+
+
+# Ctmin and Ctmax -- sorry it's a bit of a mess
+```{r, echo=FALSE}
+CT <- read.csv(file = "./data/CT_Data_2016.csv", header = TRUE)
+HopRaw <- read.csv(file = "./data/Pdodge_PerformanceData1_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+SexData <- data.frame(HopRaw$Individual, HopRaw$sex, stringsAsFactors = FALSE)
+
+CT <- merge(CT, SexData, by.x =  colnames(CT)[1], by.y = colnames(SexData)[1])
+colnames(CT)[ncol(CT)] <- "Sex"
+CT$Sex <- ifelse(CT$Sex == "", NA, CT$Sex)
+
+#Drop cases with no sex
+CT= subset(CT, CT$Sex %in% c("M","F"))
+```
+
 ```{r}
-#Fill in later... can be found in 11_24
+#exploring CT_max without random effects 
+
+lm_site_max <- lm(as.numeric(CT_max) ~ Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_temp_max <- lm(as.numeric(CT_max) ~ Temp,
+                 na.action = 'na.omit', data = CT)
+
+lm_light_max <- lm(as.numeric(CT_max) ~ Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_sex_max <- lm(as.numeric(CT_max) ~ Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_st_max <- lm(as.numeric(CT_max) ~ Site + Temp,
+                 na.action = 'na.omit', data = CT)
+
+lm_sl_max <- lm(as.numeric(CT_max) ~ Site + Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_tl_max <- lm(as.numeric(CT_max) ~ Temp + Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_sS_max <- lm(as.numeric(CT_max) ~ Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_tS_max <- lm(as.numeric(CT_max) ~ Temp + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_lS_max <- lm(as.numeric(CT_max) ~ Light + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxt_max <- lm(as.numeric(CT_max) ~ Site * Temp,
+                 na.action = 'na.omit', data = CT)
+
+lm_sxl_max <- lm(as.numeric(CT_max) ~ Site * Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_txl_max <- lm(as.numeric(CT_max) ~ Temp * Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_stl_max <- lm(as.numeric(CT_max) ~ Temp + Light + Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_stlS_max <- lm(as.numeric(CT_max) ~ Temp + Light + Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxtxl_max <- lm(as.numeric(CT_max) ~ Temp * Light * Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_sxtxlxS_max <- lm(as.numeric(CT_max) ~ Temp * Light * Site * Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+aictab(list(lm_site_max, lm_temp_max, lm_light_max, lm_sex_max, lm_st_max, lm_sl_max, lm_tl_max, lm_sS_max, lm_tS_max, lm_lS_max, lm_sxt_max, lm_sxl_max, lm_txl_max, lm_stl_max, lm_stl_max, lm_sxtxl_max, lm_sxtxlxS_max), modnames = c("lm_site_max", "lm_temp_max", "lm_light_max", "lm_sex_max", "lm_st_max", "lm_sl_max", "lm_tl_max", "lm_sS_max", "lm_tS_max", "lm_lS_max", "lm_sxt_max", "lm_sxl_max", "lm_txl_max", "lm_stl_max","lm_stlS_max", "lm_sxtxl_max", "lm_sxtxlxS_max"))
+```
+
+```{r}
+mod <- lm(as.numeric(CT_max) ~ Sex*Temp*Light*Site, data = CT)
+step(mod) #gives Temp + Light
+
+mod <- lm(as.numeric(CT_min) ~ Sex*Temp*Light*Site, data = CT)
+step(mod) #gives back something that doesn't have a good AIC (see lm_step in next chunk)
+```
+
+
+```{r}
+#exploring CT_min without random effects 
+
+lm_site_min <- lm(as.numeric(CT_min) ~ Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_temp_min <- lm(as.numeric(CT_min) ~ Temp,
+                 na.action = 'na.omit', data = CT)
+
+lm_light_min <- lm(as.numeric(CT_min) ~ Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_sex_min <- lm(as.numeric(CT_min) ~ Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_st_min <- lm(as.numeric(CT_min) ~ Site + Temp,
+                 na.action = 'na.omit', data = CT)
+
+lm_sl_min <- lm(as.numeric(CT_min) ~ Site + Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_tl_min <- lm(as.numeric(CT_min) ~ Temp + Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_sS_min <- lm(as.numeric(CT_min) ~ Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_tS_min <- lm(as.numeric(CT_min) ~ Temp + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_lS_min <- lm(as.numeric(CT_min) ~ Light + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxt_min <- lm(as.numeric(CT_min) ~ Site * Temp,
+                 na.action = 'na.omit', data = CT)
+
+lm_sxl_min <- lm(as.numeric(CT_min) ~ Site * Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_txl_min <- lm(as.numeric(CT_min) ~ Temp * Light,
+                 na.action = 'na.omit', data = CT)
+
+lm_stl_min <- lm(as.numeric(CT_min) ~ Temp + Light + Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_stlS_min <- lm(as.numeric(CT_min) ~ Temp + Light + Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxtxl_min <- lm(as.numeric(CT_min) ~ Temp * Light * Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_sxtxlxS_min <- lm(as.numeric(CT_min) ~ Temp * Light * Site * Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_step <- lm(as.numeric(CT_min) ~ Sex + Temp + Light + Site + 
+    Sex:Temp + Temp:Light + Sex:Site + Temp:Site + Light:Site + 
+    Sex:Temp:Site + Temp:Light:Site, data = CT) #this is what the step function gave back
+
+aictab(list(lm_site_min, lm_temp_min, lm_light_min, lm_sex_min, lm_st_min, lm_sl_min, lm_tl_min, lm_sS_min, lm_tS_min, lm_lS_min, lm_sxt_min, lm_sxl_min, lm_txl_min, lm_stl_min, lm_stl_min, lm_sxtxl_min, lm_sxtxlxS_min, lm_step), modnames = c("lm_site_min", "lm_temp_min", "lm_light_min", "lm_sex_min", "lm_st_min", "lm_sl_min", "lm_tl_min", "lm_sS_min", "lm_tS_min", "lm_lS_min", "lm_sxt_min", "lm_sxl_min", "lm_txl_min", "lm_stl_min","lm_stlS_min", "lm_sxtxl_min", "lm_sxtxlxS_min", "lm_step"))
+```
+
+
+```{r, include=FALSE}
+CT <- CT %>% mutate(Female=sub("\\..*", "", Individual)) #Individuals only show up in one row. But I'm deducing that the start of the individual's name (before the period) is the mother
+
+#exploring mixed models for CT_max
+
+Lmermax_t <- lmer(as.numeric(CT_max) ~ Temp +
+                   (1|Female),
+                 REML = FALSE,
+                 na.action = 'na.omit', data = CT)
+Lmermax_l <- lmer(as.numeric(CT_max) ~ Light +
+                   (1|Female),
+                 REML = FALSE,
+                 na.action = 'na.omit', data = CT)
+
+Lmermax_tl <- lmer(as.numeric(CT_max) ~ Temp + Light +
+                   (1|Female),
+                 REML = FALSE,
+                 na.action = 'na.omit', data = CT)
+#singular
+
+Lmermax_txl <- lmer(as.numeric(CT_max) ~ Temp * Light +
+                   (1|Female),
+                 REML = FALSE,
+                 na.action = 'na.omit', data = CT)
+#singular
+
+aictab(list(Lmermax_t,Lmermax_l,Lmermax_tl,Lmermax_txl), modnames= c("Lmermax_t","Lmermax_l","Lmermax_tl","Lmermax_txl"))
+```
+
+```{r}
+#all singular / boundary issues (except just l which is the worst in terms of dAICc (=3.95))
+
+#exploring mixed models for CT_min
+
+Lmermin_t <- lmer(as.numeric(CT_min) ~ Temp +
+                   (1|Female),
+                 REML = FALSE,
+                 na.action = 'na.omit', data = CT)
+Lmermin_l <- lmer(as.numeric(CT_min) ~ Light +
+                   (1|Female),
+                 REML = FALSE,
+                 na.action = 'na.omit', data = CT)
+
+Lmermin_tl <- lmer(as.numeric(CT_min) ~ Temp + Light +
+                   (1|Female),
+                 REML = FALSE,
+                 na.action = 'na.omit', data = CT)
+#singular
+
+Lmermin_txl <- lmer(as.numeric(CT_min) ~ Temp * Light +
+                   (1|Female),
+                 REML = FALSE,
+                 na.action = 'na.omit', data = CT)
+#singular
+
+aictab(list(Lmermin_t,Lmermin_l,Lmermin_tl,Lmermin_txl), modnames= c("Lmermin_t","Lmermin_l","Lmermin_tl","Lmermin_txl"))
+```
+
+Ideas: 
+-Use Temp*Light for both CTmin and CTmax (since it's within delta AICc of 2 for both and tops for one). 
+-Use the better one for each (CTmin is Temp*Light, CTmax is just Light)
+-Omit the random effect of the mother and do one of these above 2 options with lm (I should see if I can compare the AICs or otherwise evaluate which is better... aictab doesn't like dealing with the different types)
+
+Follow-up questions: 
+-Is it important that CTmax and CTmin use the same model?
+-Regardless of what we do, we get a singularity for CTmin if we have the random effect. Is this a huge issue that we have to avoid at all costs?
+
+```{r}
+#considering going with txl for both and omitting the random effect
+AIC(lm_txl_min, Lmermin_txl)
+AIC(lm_txl_max, Lmermax_txl)
+#in each case the AIC is lower by 2 when random effects are omitted
+```
+
+
+```{r}
+#not sure about whether to do txl or t+l... this would indicate t+l or even simply l... but might want to go with the same model for both
+
+lm_txl <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp * Light,
+                 na.action = 'na.omit', data = CT)
+lm_tl <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp + Light,
+                 na.action = 'na.omit', data = CT)
+lm_t <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp,
+                 na.action = 'na.omit', data = CT)
+lm_l <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Light,
+                 na.action = 'na.omit', data = CT)
+anova(lm_t, lm_tl, lm_txl)
+anova(lm_l, lm_tl, lm_txl)
+```
+
+```{r}
+#table for CTmin
+a <- Anova(lm_txl_min, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>F)`<.05] <- "*  "
+a$Significance[a$`Pr(>F)`<.001] <- "***"
+a$`Pr(>F)` <- format(a$`Pr(>F)`, scientific=TRUE, digits=3)
+a$`Pr(>F)` <- as.character(a$`Pr(>F)`)
+a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+a[5,4] <- NA
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("CTminanova.png")
+
+#table for CTmax
+a <- Anova(lm_txl_max, type=3) #this is not the best model for CTmax, but it's not much lower in AIC
+a$Significance <- "   "
+a$Significance[a$`Pr(>F)`<.05] <- "*  "
+a$Significance[a$`Pr(>F)`<.001] <- "***"
+a$`Pr(>F)` <- format(a$`Pr(>F)`, scientific=TRUE, digits=3)
+a$`Pr(>F)` <- as.character(a$`Pr(>F)`)
+a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+a[5,4] <- NA
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("CTmaxanova.png")
+```
+
+```{r}
+#the lowest AIC for CTmax: Light is significant
+#table for CTmax
+a <- Anova(lm_tl_max, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>F)`<.05] <- "*  "
+a$Significance[a$`Pr(>F)`<.001] <- "***"
+a$`Pr(>F)` <- format(a$`Pr(>F)`, scientific=TRUE, digits=3)
+a$`Pr(>F)` <- as.character(a$`Pr(>F)`)
+a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+a[5,4] <- NA
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("adultanova.png")
+```
+
+```{r}
+s <- summary(lm_txl_min)
+s <- data.frame(s[["coefficients"]])
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("tabs/CTminSummary.png")
+
+
+
+s <- summary(lm_txl_max)
+s <- data.frame(s[["coefficients"]])
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("tabs/CTmaxSummary.png")
+```
+
+Visualize CTmin
+```{r}
+ggplot(data = CT, aes(x = Site, y = as.numeric(CT_min), color = Temp)) +
+facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+
+```
+
+Visualize CTmax
+```{r}
+ggplot(data = CT, aes(x = Site, y = as.numeric(CT_max), color = Temp)) +
+facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
+
+
+```{r}
+plot_model(lm_txl_min, type="pred", terms=c("Light", "Temp"), show.data=FALSE)
+plot_model(lm_txl_min, type="pred", terms=c("Temp"), show.data=FALSE)
+#plot_model(Lmer0.3, type="pred", terms=c("Instar", "Site"), show.data=FALSE)
 ```
 
 # Performance
@@ -759,18 +1504,8 @@ a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
 a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("hoppinganova.png")
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("hoppinganova.png")
 ```
-This calls for some plotting of effects
-```{r}
-plot_model(LmerL_H0, type="pred", terms=c("TestTemp","Light", "Temp", "Site", "Sex"), show.data=FALSE)
-
-plot_model(LmerL_H0, type="pred", show.data=FALSE)
-plot_model(LmerL_H0, type="pred", terms=c("Temp", "Light"), show.data=FALSE)
-
-
-```
-
 
 
 ```{r}
@@ -785,9 +1520,53 @@ s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
 s$`Pr...t..` <- as.character(s$`Pr...t..`)
 s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("hoppingcoeff.png")
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("hoppingcoeff.png")
 ```
 
+
+This calls for some plotting of effects
+
+
+```{r}
+dat <- ggpredict(LmerL_H0, terms = c("TestTemp","Light", "Temp", "Site"), condition = c(Sex = "M"))
+pM <- plot(dat, facet = TRUE)
+
+dat <- ggpredict(LmerL_H0, terms = c("TestTemp","Light", "Temp", "Site"), condition = c(Sex = "F"))
+pF <- plot(dat, facet = TRUE)
+
+plot_grid(pM[[1]], pM[[2]], pM[[3]], pF[[1]], pF[[2]], pF[[3]])
+```
+
+
+
+```{r}
+plot_model(LmerL_H0, type="pred", terms=c("TestTemp","Light", "Temp", "Site", "Sex"), show.data=FALSE)
+```
+
+
+```{r}
+
+plot_model(LmerL_H0, type="pred", terms=c("Temp", "Light"), show.data=FALSE)
+
+
+```
+```{r}
+plot_model(LmerL_H0, type="pred", terms=c("TestTemp", "Temp"), show.data=FALSE)
+
+
+```
+```{r}
+plot_model(LmerL_H0, type="pred", terms=c("TestTemp", "Sex", "Site"), show.data=FALSE)
+```
+```{r}
+plot_model(LmerL_H0, type="pred", terms=c("TestTemp", "Sex", "Light"), show.data=FALSE)
+```
+```{r}
+plot_model(LmerL_H0, type="pred", terms=c("TestTemp", "Temp", "Light"), show.data=FALSE)
+```
+```{r}
+plot_model(LmerL_H0, type="pred", terms=c("TestTemp", "Temp", "Light"), show.data=FALSE)
+```
 
 
 ## Leaf eating
@@ -905,7 +1684,7 @@ LmerF3.2 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^2 + TestT
 
 LmerF3.5 <- lmer(Tot_Consumed ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temp + Light)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temp + 
                    (1|Mom/ID), 
-                 REML = FALSE, #I un-commented this!
+                 REML = FALSE, #I un-commented this
                  na.action = 'na.omit', data = FeedPL) 
 #^fixed-effect model matrix is rank deficient so dropping 5 columns / coefficients
 #seems it's not too concerning tho https://stackoverflow.com/questions/37090722/lme4lmer-reports-fixed-effect-model-matrix-is-rank-deficient-do-i-need-a-fi
@@ -975,7 +1754,7 @@ TLmerF3.2 <- lmer(Tot_Consumed ~ (TestTemp + Sex + Site + Temp + Light)^2 + Test
 
 TLmerF3.5 <- lmer(Tot_Consumed ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temp + Light)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temp + 
                    (1|Mom/ID), 
-                 #REML = FALSE, #I un-commented this!
+                 #REML = FALSE, 
                  na.action = 'na.omit', data = FeedPL)
 
 
@@ -986,7 +1765,7 @@ TLmerF3.5 <- lmer(Tot_Consumed ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + T
 # Anova(TLmerF3.2, type = 3)
 # Anova(TLmerF3.5, type = 3)
 ```
-ANOVA Table for the best performing one, 3.5 (I'm sticking with REML=FALSE)
+ANOVA Table for the best performing one, 3.5 (sticking w REML=FALSE)
 ```{r}
 a <- Anova(LmerF3.5, type=3)
 a$Significance <- "   "
@@ -996,12 +1775,12 @@ a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
 a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("feedinganova.png")
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("feedinganova.png")
 
 ```
 
 ```{r}
-s <- summary(LmerL_H0)
+s <- summary(LmerF3.5)
 s <- data.frame(s[["coefficients"]])
 
 
@@ -1012,14 +1791,32 @@ s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
 s$`Pr...t..` <- as.character(s$`Pr...t..`)
 s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("feedingcoeff.png")
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("feedingcoeff.png")
 
 ```
 
-
-Another thing to think about -- crop loading vs processing (not just total time)
 
 ```{r}
+p <- ggpredict(LmerF3.5, terms = c("TestTemp", "Site", "Sex"))
+plot(p, facet=TRUE)
+
+#why no error bars?
 
 ```
 
+
+```{r}
+p <- ggpredict(LmerF3.5, terms = c("TestTemp", "Light"))
+plot(p, facet=TRUE)
+
+```
+
+
+```{r}
+ggpredict(LmerF3.5, terms = c("Site", "Light"))
+```
+
+```{r}
+ggpredict(LmerF3.5, terms = c("TestTemp"))
+```
+Another thing to think about -- crop loading vs processing (not just total time)
