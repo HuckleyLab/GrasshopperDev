@@ -363,9 +363,9 @@ Give.N <- function(x){
 #drop NA sex
 Instars= Instars[which(Instars$sex %in% c("F","M")),]
 
-ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp)) +
+ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp, linetype=sex)) +
 #  rory_theme +
-  facet_grid(sex~Light, labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+  facet_grid(cols=vars(Light), labeller=labeller(sex = sex.labs, Light = Light.labs)) +
   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
@@ -478,7 +478,7 @@ options(knitr.kable.NA = '')
 kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("devinstarnumericcoeff.png")
 ```
 
-DON'T NEED TO RUN OLD ALTERNATIVE -- skip to line 276
+DON'T NEED TO RUN OLD ALTERNATIVE
 ### OLD ALTERNATIVE
 ```{r}
 
@@ -531,6 +531,15 @@ aictab(list(Lmer0.1, Lmer0.2, Lmer0.3, Lmer0.4), modnames = c("Lmer0.1", "Lmer0.
 
 Visualize
 ```{r}
+ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp, linetype=sex)) +
+#  rory_theme +
+  facet_grid(cols=vars(Light), labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+
+
 ggplot(data = Instars_names, aes(x = Site, y = as.numeric(Mass_Adult), color = Temperature)) +
 #  rory_theme +
   facet_grid(Sex~Photoperiod, labeller=labeller(Sex = sex.labs, Photoperiod = Light.labs)) +
@@ -539,6 +548,26 @@ ggplot(data = Instars_names, aes(x = Site, y = as.numeric(Mass_Adult), color = T
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
   ylab("Mass as adult (g)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
 ```
+
+```{r}
+Instars_names_devmass <- Instars_names %>% 
+  rename(`Time to adult (d)` = Age_Adult, `Mass as adult (g)` = Mass_Adult) %>%
+  gather(key="meas", value="y", `Time to adult (d)`, `Mass as adult (g)`) %>%
+  transform(meas=factor(meas,levels=c("Time to adult (d)", "Mass as adult (g)")))
+#^I think the warning is ok. We want mass to be numeric / age can be also
+
+
+
+ggplot(data = Instars_names_devmass, aes(x = Site, y = y, color = Temperature, linetype=Sex)) +
+  facet_grid(meas~Photoperiod, scales="free_y", labeller=labeller(Photoperiod = Light.labs), switch="y") +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_linetype_discrete(labels=c("Female", "Male")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1), axis.title.y = element_blank(), strip.background.y = element_blank(),  strip.placement = "outside") 
+
+
+
+```
+
 
 Check normal... well so it's not the most normal but at the moment I treat it like it is
 ```{r}
@@ -707,7 +736,7 @@ kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), esc
 ```
 
 
-DON'T NEED TO RUN OLD ALTERNATIVE -- skip to line 509
+DON'T NEED TO RUN OLD ALTERNATIVE
 ### ALTERATIVE OLD
 ```{r}
 M_Instars_Adult <- Instars_names[is.na(Instars_names$Mass_Adult) == FALSE,]
@@ -864,7 +893,7 @@ PBT_Long$Sex <- as.factor(PBT_Long$Sex)
 PBT_Long$Individual <- as.factor(PBT_Long$Individual)
 
 
-hist(PBT_Long$value) #looks quite normal
+hist(PBT_Long$value) #looks fairly normal
 
 LmerPBT.0 <- lmer(value ~ Sex * Site * Temp * Light + 
                     (1|Individual), na.action = 'na.omit', 
@@ -932,7 +961,7 @@ Give.N <- function(x){
 
 ggplot(data = PBT %>% filter(!is.na(Sex)), aes(x = Site, y = Tb_Mean, color = Temp)) +
 #  rory_theme +
-  facet_grid(Sex~Light, labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+  facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
   stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 4) +
@@ -1115,26 +1144,27 @@ aictab(list(lm_site_min, lm_temp_min, lm_light_min, lm_sex_min, lm_st_min, lm_sl
 
 
 ```{r, include=FALSE}
-CT <- CT %>% mutate(Female=sub("\\..*", "", Individual)) #Individuals only show up in one row. But I'm deducing that the start of the individual's name (before the period) is the mother
+CT <- CT %>% mutate(Female=sub("\\..*", "", Individual)) %>% rename(Temperature=Temp, Photoperiod=Light) #Individuals only show up in one row. But I'm deducing that the start of the individual's name (before the period) is the mother
+
 
 #exploring mixed models for CT_max
 
-Lmermax_t <- lmer(as.numeric(CT_max) ~ Temp +
+Lmermax_t <- lmer(as.numeric(CT_max) ~ Temperature +
                    (1|Female),
                  REML = FALSE,
                  na.action = 'na.omit', data = CT)
-Lmermax_l <- lmer(as.numeric(CT_max) ~ Light +
+Lmermax_l <- lmer(as.numeric(CT_max) ~ Photoperiod +
                    (1|Female),
                  REML = FALSE,
                  na.action = 'na.omit', data = CT)
 
-Lmermax_tl <- lmer(as.numeric(CT_max) ~ Temp + Light +
+Lmermax_tl <- lmer(as.numeric(CT_max) ~ Temperature + Photoperiod +
                    (1|Female),
                  REML = FALSE,
                  na.action = 'na.omit', data = CT)
 #singular
 
-Lmermax_txl <- lmer(as.numeric(CT_max) ~ Temp * Light +
+Lmermax_txl <- lmer(as.numeric(CT_max) ~ Temperature * Photoperiod +
                    (1|Female),
                  REML = FALSE,
                  na.action = 'na.omit', data = CT)
@@ -1148,22 +1178,22 @@ aictab(list(Lmermax_t,Lmermax_l,Lmermax_tl,Lmermax_txl), modnames= c("Lmermax_t"
 
 #exploring mixed models for CT_min
 
-Lmermin_t <- lmer(as.numeric(CT_min) ~ Temp +
+Lmermin_t <- lmer(as.numeric(CT_min) ~ Temperature +
                    (1|Female),
                  REML = FALSE,
                  na.action = 'na.omit', data = CT)
-Lmermin_l <- lmer(as.numeric(CT_min) ~ Light +
+Lmermin_l <- lmer(as.numeric(CT_min) ~ Photoperiod +
                    (1|Female),
                  REML = FALSE,
                  na.action = 'na.omit', data = CT)
 
-Lmermin_tl <- lmer(as.numeric(CT_min) ~ Temp + Light +
+Lmermin_tl <- lmer(as.numeric(CT_min) ~ Temperature + Photoperiod +
                    (1|Female),
                  REML = FALSE,
                  na.action = 'na.omit', data = CT)
 #singular
 
-Lmermin_txl <- lmer(as.numeric(CT_min) ~ Temp * Light +
+Lmermin_txl <- lmer(as.numeric(CT_min) ~ Temperature * Photoperiod +
                    (1|Female),
                  REML = FALSE,
                  na.action = 'na.omit', data = CT)
@@ -1192,19 +1222,24 @@ AIC(lm_txl_max, Lmermax_txl)
 ```{r}
 #not sure about whether to do txl or t+l... this would indicate t+l or even simply l... but might want to go with the same model for both
 
-lm_txl <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp * Light,
+lm_txl <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temperature * Photoperiod,
                  na.action = 'na.omit', data = CT)
-lm_tl <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp + Light,
+lm_tl <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temperature + Photoperiod,
                  na.action = 'na.omit', data = CT)
-lm_t <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temp,
+lm_t <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Temperature,
                  na.action = 'na.omit', data = CT)
-lm_l <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Light,
+lm_l <- lm(cbind(as.numeric(CT_min), as.numeric(CT_max)) ~ Photoperiod,
                  na.action = 'na.omit', data = CT)
 anova(lm_t, lm_tl, lm_txl)
 anova(lm_l, lm_tl, lm_txl)
 ```
 
 ```{r}
+lm_txl_min <- lm(as.numeric(CT_min) ~ Temperature * Photoperiod,
+                 na.action = 'na.omit', data = CT)
+lm_txl_max <- lm(as.numeric(CT_max) ~ Temperature * Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
 #table for CTmin
 a <- Anova(lm_txl_min, type=3)
 a$Significance <- "   "
@@ -1228,7 +1263,35 @@ a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
 a[5,4] <- NA
 options(knitr.kable.NA = '')
 kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("CTmaxanova.png")
+
 ```
+
+```{r}
+#table for CTmin
+a <- Anova(lm_txl_min, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>F)`<.05] <- "*  "
+a$Significance[a$`Pr(>F)`<.001] <- "***"
+a$`Pr(>F)` <- format(a$`Pr(>F)`, scientific=TRUE, digits=3)
+a$`Pr(>F)` <- as.character(a$`Pr(>F)`)
+a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+a[5,4] <- NA
+b <- Anova(lm_txl_max, type=3)
+rownames(b) <- c()
+b$Significance <- "   "
+b$Significance[b$`Pr(>F)`<.05] <- "*  "
+b$Significance[b$`Pr(>F)`<.001] <- "***"
+b$`Pr(>F)` <- format(b$`Pr(>F)`, scientific=TRUE, digits=3)
+b$`Pr(>F)` <- as.character(b$`Pr(>F)`)
+b <- b %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+b[5,4] <- NA
+a <- cbind(a,b)
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4)) %>% save_kable("CTminmaxanova.png")
+
+
+```
+
 
 ```{r}
 #the lowest AIC for CTmax: Light is significant
@@ -1275,23 +1338,43 @@ kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p"), escape=FA
 
 Visualize CTmin
 ```{r}
-ggplot(data = CT, aes(x = Site, y = as.numeric(CT_min), color = Temp)) +
-facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
-  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
-  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
-  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+# ggplot(data = CT, aes(x = Site, y = as.numeric(CT_min), color = Temp)) +
+# facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+#   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+#   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+#   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+#   ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
 
 ```
 
 Visualize CTmax
 ```{r}
-ggplot(data = CT, aes(x = Site, y = as.numeric(CT_max), color = Temp)) +
-facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+# ggplot(data = CT, aes(x = Site, y = as.numeric(CT_max), color = Temp)) +
+# facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+#   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+#   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+#   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+#   ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
+Visualize CTmin and CTmax together (putting sexes together on a plot)
+```{r}
+Instars_names_devmass <- Instars_names %>% 
+  rename(`Time to adult (days)` = Age_Adult, `Mass as adult (g)` = Mass_Adult) %>%
+  gather(key="meas", value="y", `Time to adult (days)`, `Mass as adult (g)`)
+#^I think the warning is ok. We want mass to be numeric / age can be also
+
+CTminmax <- CT %>% 
+  rename(`CTmin (C)`= CT_min, `CTmax (C)`= CT_max) %>%
+  gather(key="meas", value="y", `CTmin (C)`, `CTmax (C)`)
+
+ggplot(data = CTminmax, aes(x = Site, y = y, color = Temperature, linetype=Sex)) +
+  facet_grid(meas~Photoperiod, scales="free_y", labeller=labeller(Photoperiod = Light.labs), switch="y") +
   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
-  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+  xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_linetype_discrete(labels=c("Female", "Male")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1), axis.title.y = element_blank(), strip.background.y = element_blank(),  strip.placement = "outside") 
+
+
+
 ```
 
 
@@ -1403,15 +1486,31 @@ MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
 Give.N <- function(x){return(c(y = MaxSE(x)*1.1, label = length(x))) }
 
 #right now it's mean... should it be individual if that's how I'm doing the analysis?
+# might not be a big deal since it's a random effect in the model... I'll do both just in case
+#(see below)
 
 #hopping performance analyses
 ggplot(data = Hop, aes(x = TestTemp, y = Mean, col = Site, linetype = Sex)) +
-  rory_theme +
+  #rory_theme +
   facet_grid(Light~Temp) +
   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1, position = position_dodge(width = 3)) +
   stat_summary(fun.y = mean, geom = "line", size = 2, position = position_dodge(width = 3)) +
   ylab("Mean hopping distance (cm)") + xlab("Test temperature") +
   scale_x_continuous(limits = c(5, 40), breaks = c(10, 17, 25, 35))
+
+
+
+Temp.labs <- c("High temp var", "Low temp var")
+names(Temp.labs) <- c("HV", "LV")
+
+Hop <- Hop %>% rename(Temperature=Temp, Photoperiod=Light)
+
+ggplot(data = Hop, aes(x = TestTemp, y = Mean, col = Site)) +
+  facet_grid(Temperature~Sex+Photoperiod, labeller=labeller(Temperature=Temp.labs, Photoperiod = Light.labs, Sex=sex.labs)) +
+  stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Mean hopping distance (cm)") + xlab("Test temperature")
 ```
 
 
@@ -1462,13 +1561,28 @@ a <- Anova(LmerH1, type = 3) #The 4-way interaction between the polynomial and s
 ```
 
 #### Working with all data
+Visualize
 ```{r}
+
 #make data long form
 Hop_Long <- melt(Hop_2[, c(1:9, 22:26, 33:35)], id.vars = c("ID", "Batch", "CC", "Site", "Species", "Sex", "Temp", "Light", "Treat", "Female", "Female2", "TestTemp"))
+Hop_Long <- Hop_Long %>% rename(Temperature=Temp, Photoperiod=Light)
+
+ggplot(data = Hop_Long, aes(x = TestTemp, y = value, col = Site)) +
+  facet_grid(Temperature~Sex+Photoperiod, labeller=labeller(Temperature=Temp.labs, Photoperiod = Light.labs, Sex=sex.labs)) +
+  stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Hopping distance (cm)") + xlab("Test temperature")
+```
+
+Model
+```{r}
+
 
 #full model (huge)
 
-LmerL_H0 <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temp * Light + 
+LmerL_H0 <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temperature * Photoperiod + 
                    #(1|variable/ID/Female2), #original
                    #(1|Female2/ID/variable), #this gave a singularity issue 
                    (1|Female2/ID), #+ (1|variable), #so this did work -- might wanna double check it!
@@ -1525,7 +1639,12 @@ kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), esc
 
 
 This calls for some plotting of effects
-
+```{r}
+plot_model(LmerL_H0, type="pred", terms=c("Temp", "Light"), show.data=FALSE)
+```
+```{r}
+plot_model(LmerL_H0, type="pred", terms=c("TestTemp", "Photoperiod", "Sex"), show.data=FALSE)
+```
 
 ```{r}
 dat <- ggpredict(LmerL_H0, terms = c("TestTemp","Light", "Temp", "Site"), condition = c(Sex = "M"))
@@ -1635,6 +1754,25 @@ ggplot(data = FeedPL, aes(x = TestTemp, y = Tot_Consumed, col = Site)) +
   stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = 5), size = 5) +
   ylab("Leaf area consumed (cm2, 8h)") + xlab("Test temperature") +
   scale_x_continuous(limits = c(15, 45), breaks = c(20, 30, 40))
+
+
+FeedPL <- FeedPL %>% rename(Temperature=Temp, Photoperiod=Light)
+
+ggplot(data = FeedPL, aes(x = TestTemp, y = Tot_Consumed, col = Site)) +
+  facet_grid(Temperature~Sex+Photoperiod, labeller=labeller(Temperature=Temp.labs, Photoperiod = Light.labs, Sex=sex.labs)) +
+  stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Leaf area consumed (cm2, 8h)") + xlab("Test temperature")
+
+
+
+ggplot(data = FeedPL, aes(x = TestTemp, y = P1_Consumed, col = Site)) +
+  facet_grid(Temperature~Sex+Photoperiod, labeller=labeller(Temperature=Temp.labs, Photoperiod = Light.labs, Sex=sex.labs)) +
+  stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Leaf area consumed (cm2, 3h)") + xlab("Test temperature")
 ```
 
 
@@ -1765,7 +1903,7 @@ TLmerF3.5 <- lmer(Tot_Consumed ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + T
 # Anova(TLmerF3.2, type = 3)
 # Anova(TLmerF3.5, type = 3)
 ```
-ANOVA Table for the best performing one, 3.5 (sticking w REML=FALSE)
+ANOVA Table for the best performing one, 3.5 (sticking w REML=FALSE... but not actually?)
 ```{r}
 a <- Anova(LmerF3.5, type=3)
 a$Significance <- "   "
@@ -1820,3 +1958,167 @@ ggpredict(LmerF3.5, terms = c("Site", "Light"))
 ggpredict(LmerF3.5, terms = c("TestTemp"))
 ```
 Another thing to think about -- crop loading vs processing (not just total time)
+
+### Mass-corrected -- read in Adults only bind thru Individual / FULL_ID; use Mass_Adult
+```{r}
+AOmass <- AdultsOnly %>% rename(FULL_ID = Individual) %>% select(FULL_ID, Mass_Adult)
+FeedPLmass <- merge(FeedPL, AOmass, by="FULL_ID") 
+FeedPLmass <- FeedPLmass %>% mutate(Tot_Consumed_scaled=Tot_Consumed/Mass_Adult, 
+                                    P1_Consumed_scaled = P1_Consumed/Mass_Adult,
+                                    P2_Consumed_scaled = P2_Consumed/Mass_Adult)
+```
+
+```{r}
+ggplot(data = FeedPLmass, aes(x = TestTemp, y = Tot_Consumed_scaled, col = Site)) +
+  facet_grid(Temperature~Sex+Photoperiod, labeller=labeller(Temperature=Temp.labs, Photoperiod = Light.labs, Sex=sex.labs)) +
+  stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Mass-scaled leaf area consumed (cm2/g, 8h)") + xlab("Test temperature")
+
+
+
+ggplot(data = FeedPLmass, aes(x = TestTemp, y = P1_Consumed_scaled, col = Site)) +
+  facet_grid(Temperature~Sex+Photoperiod, labeller=labeller(Temperature=Temp.labs, Photoperiod = Light.labs, Sex=sex.labs)) +
+  stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Mass-scaled leaf area consumed (cm2/g, 3h)") + xlab("Test temperature")
+```
+```{r}
+LmerF0 <- lmer(Tot_Consumed_scaled ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temperature * Photoperiod + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass) 
+
+LmerF1 <- lmer(Tot_Consumed_scaled ~ TestTemp * Sex * Site * Temperature * Photoperiod + 
+                 (1|Mom/ID), 
+               #na.action = 'na.omit', #not sure why this is the only one like this
+               REML = FALSE,
+               data = FeedPLmass) 
+
+LmerF2 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^4 + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass) 
+
+LmerF2.1 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^4 - TestTemp:Sex:Temperature:Photoperiod - TestTemp:Sex:Site:Photoperiod + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass) 
+
+LmerF3 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^3 + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass) 
+
+LmerF3.1 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^3 +Sex:Temperature:Photoperiod:Site + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF3.2 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temperature + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF3.5 <- lmer(Tot_Consumed_scaled ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temperature + 
+                   (1|Mom/ID), 
+                 REML = FALSE, #I un-commented this
+                 na.action = 'na.omit', data = FeedPLmass) 
+#^fixed-effect model matrix is rank deficient so dropping 5 columns / coefficients
+#seems it's not too concerning tho https://stackoverflow.com/questions/37090722/lme4lmer-reports-fixed-effect-model-matrix-is-rank-deficient-do-i-need-a-fi
+
+LmerF3.3 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF3.4 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site - TestTemp:Photoperiod + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF4 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass)
+
+LmerF4.1 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + Site:Temperature:Photoperiod + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF4.2 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 - Temperature:Photoperiod + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF5 <- lmer(Tot_Consumed_scaled ~ TestTemp + Sex + Site + Temperature + Photoperiod + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass)
+
+#AIC comparisons should be done on models with "REML = FALSE"
+aictab(list(LmerF0, LmerF1, LmerF2, LmerF2.1, LmerF3, LmerF3.1, LmerF3.2, LmerF3.3, LmerF3.4, LmerF3.5, LmerF4, LmerF4.1, LmerF4.2, LmerF5), modnames = c("LmerF0", "LmerF1", "LmerF2", "LmerF2.1", "LmerF3", "Lmer3.1", "Lmer3.2", "Lmer3.3", "Lmer3.4", "Lmer3.5", "LmerF4", "LmerF4.1", "LmerF4.2", "LmerF5")) #LmerF1 is supported by far #something Rory said that I don't understand
+
+#singular fit warnings
+
+#why does he say 3.2 is selected when 3.5 appears higher?
+```
+ANOVA Table for the best performing one, 3.5 (sticking w REML=FALSE)
+```{r}
+a <- Anova(LmerF3.5, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("feedinganova.png")
+
+```
+
+```{r}
+s <- summary(LmerF3.5)
+s <- data.frame(s[["coefficients"]])
+
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("feedingcoeff.png")
+
+```
+
+
+```{r}
+#I get a weird error "non-conformable arguments"
+#could be related to this? 
+# fit warnings:
+# fixed-effect model matrix is rank deficient so dropping 5 columns / coefficients
+# optimizer (nloptwrap) convergence code: 0 (OK)
+# boundary (singular) fit: see ?isSingular
+dat <- ggpredict(LmerF3.5, terms = c("TestTemp","Site", "Sex"))
+pM <- plot(dat, facet = TRUE)
+```
+
+```{r}
+plot_model(LmerF3.5, type= "pred", terms = c("TestTemp","Site", "Sex"), show.data=FALSE)
+```
+```{r}
+plot_model(LmerF3.5, type= "pred", terms = c("TestTemp", "Sex"), show.data=FALSE)
+```
+```{r}
+plot_model(LmerF3.5, type= "pred", terms = c("TestTemp", "Temperature"), show.data=FALSE)
+
+```
+
+```{r}
+plot_model(LmerF3.5, type= "pred", terms = c("Temperature", "Site"), show.data=FALSE)
+```
