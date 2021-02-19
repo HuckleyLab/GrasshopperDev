@@ -1560,6 +1560,9 @@ AIC(LmerH1) #preferred and looks good after graphical validation
 a <- Anova(LmerH1, type = 3) #The 4-way interaction between the polynomial and sex, temp, and light is significant.  Everything is having effects, pretty much
 ```
 
+
+
+
 #### Working with all data
 Visualize
 ```{r}
@@ -1993,7 +1996,7 @@ LmerF0 <- lmer(Tot_Consumed_scaled ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site 
 
 LmerF1 <- lmer(Tot_Consumed_scaled ~ TestTemp * Sex * Site * Temperature * Photoperiod + 
                  (1|Mom/ID), 
-               #na.action = 'na.omit', #not sure why this is the only one like this
+               na.action = 'na.omit', #uncommented
                REML = FALSE,
                data = FeedPLmass) 
 
@@ -2022,10 +2025,10 @@ LmerF3.2 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Ph
                  REML = FALSE,
                  na.action = 'na.omit', data = FeedPLmass)
 
-LmerF3.5 <- lmer(Tot_Consumed_scaled ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temperature + 
-                   (1|Mom/ID), 
-                 REML = FALSE, #I un-commented this
-                 na.action = 'na.omit', data = FeedPLmass) 
+# LmerF3.5 <- lmer(Tot_Consumed_scaled ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temperature + 
+#                    (1|Mom/ID), 
+#                  REML = FALSE, #I un-commented this
+#                  na.action = 'na.omit', data = FeedPLmass) 
 #^fixed-effect model matrix is rank deficient so dropping 5 columns / coefficients
 #seems it's not too concerning tho https://stackoverflow.com/questions/37090722/lme4lmer-reports-fixed-effect-model-matrix-is-rank-deficient-do-i-need-a-fi
 
@@ -2060,11 +2063,11 @@ LmerF5 <- lmer(Tot_Consumed_scaled ~ TestTemp + Sex + Site + Temperature + Photo
                na.action = 'na.omit', data = FeedPLmass)
 
 #AIC comparisons should be done on models with "REML = FALSE"
-aictab(list(LmerF0, LmerF1, LmerF2, LmerF2.1, LmerF3, LmerF3.1, LmerF3.2, LmerF3.3, LmerF3.4, LmerF3.5, LmerF4, LmerF4.1, LmerF4.2, LmerF5), modnames = c("LmerF0", "LmerF1", "LmerF2", "LmerF2.1", "LmerF3", "Lmer3.1", "Lmer3.2", "Lmer3.3", "Lmer3.4", "Lmer3.5", "LmerF4", "LmerF4.1", "LmerF4.2", "LmerF5")) #LmerF1 is supported by far #something Rory said that I don't understand
+aictab(list(LmerF1, LmerF2, LmerF2.1, LmerF3, LmerF3.1, LmerF3.2, LmerF3.3, LmerF3.4,  LmerF4, LmerF4.1, LmerF4.2, LmerF5), modnames = c("LmerF1", "LmerF2", "LmerF2.1", "LmerF3", "Lmer3.1", "Lmer3.2", "Lmer3.3", "Lmer3.4", "LmerF4", "LmerF4.1", "LmerF4.2", "LmerF5")) #LmerF1 is supported by far #something Rory said that I don't understand
 
 #singular fit warnings
 
-#why does he say 3.2 is selected when 3.5 appears higher?
+#why does he say 3.2 is selected when 3.5 appears higher? -- ah it's bc polynomial for 3 point is wrong
 ```
 ANOVA Table for the best performing one, 3.5 (sticking w REML=FALSE)
 ```{r}
@@ -2097,6 +2100,8 @@ kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), esc
 ```
 
 
+
+
 ```{r}
 #I get a weird error "non-conformable arguments"
 #could be related to this? 
@@ -2104,6 +2109,8 @@ kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), esc
 # fixed-effect model matrix is rank deficient so dropping 5 columns / coefficients
 # optimizer (nloptwrap) convergence code: 0 (OK)
 # boundary (singular) fit: see ?isSingular
+
+#useful stackoverflow: https://stackoverflow.com/questions/34221564/non-conformable-arguments-error-from-lmer-when-trying-to-extract-information-fro
 dat <- ggpredict(LmerF3.5, terms = c("TestTemp","Site", "Sex"))
 pM <- plot(dat, facet = TRUE)
 ```
@@ -2115,10 +2122,120 @@ plot_model(LmerF3.5, type= "pred", terms = c("TestTemp","Site", "Sex"), show.dat
 plot_model(LmerF3.5, type= "pred", terms = c("TestTemp", "Sex"), show.data=FALSE)
 ```
 ```{r}
-plot_model(LmerF3.5, type= "pred", terms = c("TestTemp", "Temperature"), show.data=FALSE)
+LmerF0 <- lmer(Tot_Consumed_scaled ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temperature * Photoperiod + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass) 
+
+LmerF1 <- lmer(Tot_Consumed_scaled ~ TestTemp * Sex * Site * Temperature * Photoperiod + 
+                 (1|Mom/ID), 
+               na.action = 'na.omit', #uncommented
+               REML = FALSE,
+               data = FeedPLmass) 
+
+LmerF2 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^4 + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass) 
+
+LmerF2.1 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^4 - TestTemp:Sex:Temperature:Photoperiod - TestTemp:Sex:Site:Photoperiod + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass) 
+
+LmerF3 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^3 + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass) 
+
+LmerF3.1 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^3 +Sex:Temperature:Photoperiod:Site + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF3.2 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temperature + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+# LmerF3.5 <- lmer(Tot_Consumed_scaled ~ (poly(TestTemp, 2, raw = TRUE) + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site + TestTemp:Sex:Temperature + 
+#                    (1|Mom/ID), 
+#                  REML = FALSE, #I un-commented this
+#                  na.action = 'na.omit', data = FeedPLmass) 
+#^fixed-effect model matrix is rank deficient so dropping 5 columns / coefficients
+#seems it's not too concerning tho https://stackoverflow.com/questions/37090722/lme4lmer-reports-fixed-effect-model-matrix-is-rank-deficient-do-i-need-a-fi
+
+LmerF3.3 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF3.4 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + TestTemp:Sex:Site - TestTemp:Photoperiod + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF4 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass)
+
+LmerF4.1 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 + Site:Temperature:Photoperiod + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF4.2 <- lmer(Tot_Consumed_scaled ~ (TestTemp + Sex + Site + Temperature + Photoperiod)^2 - Temperature:Photoperiod + 
+                   (1|Mom/ID), 
+                 REML = FALSE,
+                 na.action = 'na.omit', data = FeedPLmass)
+
+LmerF5 <- lmer(Tot_Consumed_scaled ~ TestTemp + Sex + Site + Temperature + Photoperiod + 
+                 (1|Mom/ID), 
+               REML = FALSE,
+               na.action = 'na.omit', data = FeedPLmass)
+
+#AIC comparisons should be done on models with "REML = FALSE"
+aictab(list(LmerF1, LmerF2, LmerF2.1, LmerF3, LmerF3.1, LmerF3.2, LmerF3.3, LmerF3.4,  LmerF4, LmerF4.1, LmerF4.2, LmerF5), modnames = c("LmerF1", "LmerF2", "LmerF2.1", "LmerF3", "Lmer3.1", "Lmer3.2", "Lmer3.3", "Lmer3.4", "LmerF4", "LmerF4.1", "LmerF4.2", "LmerF5")) #LmerF1 is supported by far #something Rory said that I don't understand
+
+#singular fit warnings
+
+#why does he say 3.2 is selected when 3.5 appears higher? -- ah it's bc polynomial for 3 point is wrong
+```
+ANOVA Table for the best performing one, 3.5 (sticking w REML=FALSE)
+```{r}
+a <- Anova(LmerF3.4, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("feedinganova.png")
 
 ```
 
 ```{r}
-plot_model(LmerF3.5, type= "pred", terms = c("Temperature", "Site"), show.data=FALSE)
+s <- summary(LmerF3.4)
+s <- data.frame(s[["coefficients"]])
+
+
+s$Significance <- "   "
+s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.001] <- "***"
+s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
+s$`Pr...t..` <- as.character(s$`Pr...t..`)
+s <- s %>% unite(p, c(`Pr...t..`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("feedingcoeff.png")
+
 ```
+
+```{r}
+plot_model(LmerF3.4, type= "pred", terms = c("TestTemp","Temperature"), show.data=FALSE)
+```
+```{r}
+plot_model(LmerF3.4, type= "pred", terms = c("Temperature", "Site"), show.data=FALSE)
+```
+
