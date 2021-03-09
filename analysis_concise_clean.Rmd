@@ -1,0 +1,533 @@
+---
+title: "analysis_concise_clean"
+output: html_document
+---
+
+#Set up
+
+Set working directory to source file location
+```{r setup}
+knitr::opts_knit$set(root.dir = './')
+```
+
+Load packages and functions
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Initial
+rm(list=ls(all = TRUE))
+library(stringr)
+library(foreach)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(plotrix)
+library(nlme)
+library(lme4)
+library(car)
+library(AICcmodavg)
+library(lsmeans)
+library(reshape2)
+library(MASS)
+library(nls2)
+library(tidyverse)
+library(kableExtra)
+library(faraway)
+library(sjPlot) #for plot_new
+library(tidyverse)
+library(knitr)
+library(afex)
+library(RColorBrewer)
+library(ggeffects)
+library(cowplot)
+library(stringr)
+
+#webshot::install_phantomjs()
+library(kableExtra)
+
+source('Functions.R')
+
+```
+
+Load and prepare "Instars" dataframe (ultimately use "Instars_names")
+```{r}
+# Instars from GrowthRate_Script_2016.R
+Instars <- read.csv(file = "data/GrasshopperData_3rdToAdult_SPR16.csv", header = TRUE, stringsAsFactors = FALSE)
+#str(Instars)
+Instars$sex <- ifelse(Instars$sex == "", NA, Instars$sex)
+
+#Format dates and calculate ages
+Instars$Date1_Hatch <- as.Date(Instars$Date_Hatch, format = "%m/%d/%Y")
+Instars$Date1_1st <- as.Date(Instars$Date_1st, format = "%m/%d/%Y")
+Instars$Date1_2nd <- as.Date(Instars$Date_2nd, format = "%m/%d/%Y")
+Instars$Date1_3rd <- as.Date(Instars$Date_3rd, format = "%m/%d/%Y")
+Instars$Date1_4th <- as.Date(Instars$Date_4th, format = "%m/%d/%Y")
+Instars$Date1_5th <- as.Date(Instars$Date_5th, format = "%m/%d/%Y")
+Instars$Date1_5th. <- as.Date(Instars$Date_5th., format = "%m/%d/%Y")
+Instars$Date1_Adult <- as.Date(Instars$Date_Adult, format = "%m/%d/%Y")
+Instars$Date1_Death <- as.Date(Instars$Date_Death, format = "%m/%d/%Y")
+
+Instars$Age_3rd <- Instars$Date1_3rd - Instars$Date1_Hatch
+Instars$Age_4th <- Instars$Date1_4th - Instars$Date1_Hatch
+Instars$Age_5th <- Instars$Date1_5th - Instars$Date1_Hatch
+Instars$Age_Adult <- Instars$Date1_Adult - Instars$Date1_Hatch
+
+#trim out pell data
+Instars <- Instars[Instars$Species == "dodg",]
+
+#set factors
+Instars$Site <- as.factor(Instars$Site)
+Instars$sex <- as.factor(Instars$sex)
+Instars$Temp <- as.factor(Instars$Temp)
+Instars$Light <- as.factor(Instars$Light)
+Instars$Female <- as.factor(Instars$Female)
+Instars$Female2 <- as.factor(paste(Instars$Female, Instars$Site, sep = "_")) 
+  #Female2 gives each mother her own ID (differentiates between FY1's across sites)
+Instars= Instars[which(Instars$sex %in% c("F","M")),] #ADDING THIS HERE -- I think we do this in effect anyway
+
+Instars_names <- Instars %>% rename(Sex=sex, Temperature=Temp, Photoperiod=Light)
+Instars_names$Site <- recode(Instars_names$Site, A1 = "2195m", B1="2591m", C1="3048m")
+Instars_names$Sex <- recode(Instars_names$Sex, M = "Male", F="Female")
+
+#For devinstelopment by instar
+D_Instars_Adult <- Instars_names[is.na(Instars_names$Age_Adult) == FALSE,]
+D_Instars_Adult_Long <- melt(D_Instars_Adult[,c(1:8,50:54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "Sex", "Temperature", "Photoperiod")) 
+#Make instar numeric
+D_Instars_Adult_Long$Instar=3
+D_Instars_Adult_Long$Instar[D_Instars_Adult_Long$variable=="Age_4th"]=4
+D_Instars_Adult_Long$Instar[D_Instars_Adult_Long$variable=="Age_5th"]=5
+D_Instars_Adult_Long$Instar[D_Instars_Adult_Long$variable=="Age_Adult"]=6
+
+#For mass by instar
+M_Instars_Adult <- Instars_names[is.na(Instars_names$Mass_Adult) == FALSE,]
+M_Instars_Adult_Long <-  melt(M_Instars_Adult[,c(1:8,18,21,24,30,54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "Sex", "Temperature", "Photoperiod")) #tracks the mass (value) when each individual reached each instar (variable)
+#Make instar numeric
+M_Instars_Adult_Long$Instar=3
+M_Instars_Adult_Long$Instar[M_Instars_Adult_Long$variable=="Mass_4th"]=4
+M_Instars_Adult_Long$Instar[M_Instars_Adult_Long$variable=="Mass_5th"]=5
+M_Instars_Adult_Long$Instar[M_Instars_Adult_Long$variable=="Mass_Adult"]=6
+
+
+
+```
+
+PBT
+```{r}
+PBT <- read.csv(file = "./data/PBTdata_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+
+#str(PBT)
+
+# Clean up the data 
+
+#collect treatment labels
+Labels <- str_split_fixed(PBT[,1], "_", n = 4) #collect Temp and Light treatments
+PBT$Temp <- Labels[,2]
+PBT$Light <- Labels[,3]
+PBT$Site <- Labels[,4]
+
+HopRaw <- read.csv(file = "./data/Pdodge_PerformanceData1_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+SexData <- data.frame(HopRaw$Individual, HopRaw$sex, stringsAsFactors = FALSE)
+
+PBT <- merge(PBT, SexData, by.x =  colnames(PBT)[1], by.y = colnames(SexData)[1])
+colnames(PBT)[27] <- "Sex"
+PBT$Sex <- ifelse(PBT$Sex == "", NA, PBT$Sex)
+
+
+#trim out missing data (rows with no values)
+PBT <- PBT[is.na(PBT$t_enter_grad) == FALSE, ]
+
+# calculate median and mean TB for each individual
+
+TB_df <- data.frame(PBT$Tb_1, PBT$Tb_2, PBT$Tb_3, PBT$Tb_4, PBT$Tb_5, PBT$Tb_6)
+
+PBT$Tb_Mean <- apply(TB_df, 1, mean, na.rm = TRUE)
+PBT$Tb_Median <- apply(TB_df, 1, median, na.rm = TRUE)
+PBT$Tb_sd <- apply(TB_df, 1, sd, na.rm = TRUE)
+
+# Sample Size
+
+PBT$Treat <- paste(PBT$Temp, PBT$Light, sep = "_")
+#table(PBT[,c(26,27,31)]) #results collated in google drive file "Performance Sample Sizes"
+
+PBT_2 <- merge(PBT, Instars[,c(1,3,54)], by.x = "Individual", by.y = "Individual")
+PBT_Long <- melt(PBT_2[,c(1,3,10,12,14,16,18,20,24:27,31,33)], id.var = c("Individual", "TprefBATCH", "Female2", "Temp", "Light", "Site", "Sex", "Treat"))
+PBT_Long$Temp <- as.factor(PBT_Long$Temp)
+PBT_Long$Light <- as.factor(PBT_Long$Light)
+PBT_Long$Site <- as.factor(PBT_Long$Site)
+PBT_Long$Sex <- as.factor(PBT_Long$Sex)
+PBT_Long$Individual <- as.factor(PBT_Long$Individual)
+
+
+PBT_Long <- PBT_Long %>% rename(Temperature=Temp, Photoperiod=Light)
+PBT_Long$Site <- recode(PBT_Long$Site, A1 = "2195m", B1="2591m", C1="3048m")
+PBT_Long$Sex <- recode(PBT_Long$Sex, M = "Male", F="Female")
+
+PBT <- PBT %>% rename(Temperature=Temp, Photoperiod=Light)
+PBT$Site <- recode(PBT$Site, A1 = "2195m", B1="2591m", C1="3048m")
+PBT$Sex <- recode(PBT$Sex, M = "Male", F="Female")
+```
+
+CT
+```{r}
+CT <- read.csv(file = "./data/CT_Data_2016.csv", header = TRUE)
+HopRaw <- read.csv(file = "./data/Pdodge_PerformanceData1_06202016_ALL.csv", header = TRUE, stringsAsFactors = FALSE)
+SexData <- data.frame(HopRaw$Individual, HopRaw$sex, stringsAsFactors = FALSE)
+
+CT <- merge(CT, SexData, by.x =  colnames(CT)[1], by.y = colnames(SexData)[1])
+colnames(CT)[ncol(CT)] <- "Sex"
+CT$Sex <- ifelse(CT$Sex == "", NA, CT$Sex)
+
+#Drop cases with no sex
+CT= subset(CT, CT$Sex %in% c("M","F"))
+CT <- CT %>% mutate(Female=sub("\\..*", "", Individual)) %>% rename(Temperature=Temp, Photoperiod=Light) #Individuals only show up in one row. But I'm deducing that the start of the individual's name (before the period) is the mother
+
+CT$Site <- recode(CT$Site, A1 = "2195m", B1="2591m", C1="3048m")
+CT$Sex <- recode(CT$Sex, M = "Male", F="Female")
+
+```
+
+
+
+```{r}
+
+
+# New facet label names for supp variable
+Photoperiod.labs <- c("Long day length", "Short day length")
+names(Photoperiod.labs) <- c("L", "S")
+ 
+Temperature.labs <- c("High var", "Low var")
+names(Temperature.labs) <- c("HV", "LV")
+
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+
+Give.N <- function(x){
+  return(c(y = MaxSE(x)*1.01, label = length(x))) 
+}
+```
+
+
+#Growth and Development
+##Figure 1: Adult age and mass
+```{r}
+Instars_names_devinstmass <- Instars_names %>% 
+  rename(`Time to adult (d)` = Age_Adult, `Mass as adult (g)` = Mass_Adult) %>%
+  gather(key="meas", value="y", `Time to adult (d)`, `Mass as adult (g)`) %>%
+  transform(meas=factor(meas,levels=c("Time to adult (d)", "Mass as adult (g)")))
+#^I think the warning is ok. We want mass to be numeric / age can be also
+
+
+
+ggplot(data = Instars_names_devinstmass, aes(x = Site, y = y, color = Temperature, linetype=Sex, shape=Sex)) +
+  facet_grid(meas~Photoperiod, scales="free_y", labeller=labeller(Photoperiod = Photoperiod.labs), switch="y") +
+  stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  xlab("Site")+scale_color_manual(labels=Temperature.labs, values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1)) + theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1), axis.title.y = element_blank(), strip.background.y = element_blank(),  strip.placement = "outside")
+
+
+
+```
+
+
+## Dependent variable: Development time (to adulthood)
+How do temperature variance (Temperature), photoperiod (Photoperiod), 
+elevation of site of origin (Site), and sex (Sex) affect the age of maturation?
+
+Look at the distribution -- it looks fairly normal
+```{r}
+hist(as.numeric(na.omit(Instars$Age_Adult)), breaks=10)
+```
+
+Compare different models, selecting the most complex (delta AICc>10)
+```{r}
+nLmer0 <- lmer(as.numeric(Age_Adult) ~ Sex * Site * Temperature * Photoperiod + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars_names)
+
+nLmer1 <- lmer(as.numeric(Age_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+                 Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+                 Site:Photoperiod:Temperature +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars_names)
+
+nLmer2 <- lmer(as.numeric(Age_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+                 Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars_names)
+
+nLmer3 <- lmer(as.numeric(Age_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+                 Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars_names)
+
+nLmer4 <- lmer(as.numeric(Age_Adult) ~ Site + Temperature + Photoperiod + 
+                 Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars_names)
+
+nLmer5 <- lmer(as.numeric(Age_Adult) ~ Site + Temperature + Photoperiod + 
+                 Site:Temperature + Site:Photoperiod + Temperature:Photoperiod +
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars_names)
+
+aictab(list(nLmer0, nLmer1, nLmer2, nLmer3, nLmer4, nLmer5), modnames = c("nLmer0", "nLmer1", "nLmer2", "nLmer3", "nLmer4", "nLmer5"))
+
+#best is nLmer0
+devinstmod <- nLmer0
+```
+
+## Development by instar
+```{r}
+#Lmer0.1 <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod * Instar + 
+#                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = Instars_Adult_Long)
+
+devinstmod <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod * Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = D_Instars_Adult_Long)
+#what's warning?
+```
+
+
+## Dependent variable: Mass (at adulthood)
+How do temperature variance (Temperature), photoperiod (Photoperiod), 
+elevation of site of origin (Site), and sex (Sex) affect adult mass?
+
+Check normal... well so it's not the most normal but at the moment I treat it like it is
+```{r}
+hist(as.numeric(Instars$Mass_Adult), breaks = 15)
+```
+
+Model selection / AIC comparison 
+```{r}
+LmerM0 <- lmer(as.numeric(Mass_Adult) ~ Sex * Site * Temperature * Photoperiod + 
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars_names)
+
+LmerM1 <- lmer(as.numeric(Mass_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+                 Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+                 Site:Photoperiod:Temperature +
+                 (1|Female2), 
+               REML = FALSE, 
+               na.action = 'na.omit', data = Instars_names) #singular
+
+LmerM2 <- lmer(as.numeric(Mass_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+                 Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars_names)
+
+LmerM3 <- lmer(as.numeric(Mass_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+                 Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars_names) #singular
+
+LmerM4 <- lmer(as.numeric(Mass_Adult) ~ Site + Temperature + Photoperiod + 
+                 Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+                 (1|Female2), 
+               REML = FALSE, 
+               na.action = 'na.omit', data = Instars_names) #singular
+
+LmerM5 <- lmer(as.numeric(Mass_Adult) ~ Site + Temperature + Photoperiod + 
+                 Site:Temperature + Site:Photoperiod + Temperature:Photoperiod +
+                 (1|Female2), 
+               REML = FALSE,
+               na.action = 'na.omit', data = Instars_names) #singular
+
+aictab(list(LmerM0, LmerM1, LmerM2, LmerM3, LmerM4, LmerM5), modnames = c("LmerM0", "LmerM1", "LmerM2", "LmerM3", "LmerM4", "LmerM5"))
+
+#M2 is preferred, followed closely by M3 and M1 (all within 2 of each other) we decided to go with M0 (delta AIC = 6.86)
+#(see singularity issues for many other models... all but M2 and M0)
+massmod <- LmerM0
+
+```
+
+
+## Mass by instar
+```{r}
+massinstmod <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod * Instar + 
+                   (1|Female2/Individual), na.action = 'na.omit', REML=FALSE, data = M_Instars_Adult_Long)
+```
+
+
+```{r}
+a <- Anova(massinstmod, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("massinstarnumericanova.png") 
+```
+
+```{r}
+a <- Anova(massinstmod, type=3)
+a$Significance <- "   "
+a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
+a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
+a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("devinstarnumericanova.png")
+
+```
+
+
+##Table 1
+```{r}
+devinstanova <- Anova(devinstmod, type=3)
+devinstanova$Significance <- "   "
+devinstanova$Significance[devinstanova$`Pr(>Chisq)`<.05] <- "*  "
+devinstanova$Significance[devinstanova$`Pr(>Chisq)`<.001] <- "***"
+devinstanova$`Pr(>Chisq)` <- format(devinstanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+devinstanova$`Pr(>Chisq)` <- as.character(devinstanova$`Pr(>Chisq)`)
+devinstanova <- devinstanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+
+massanova <- Anova(massmod, type=3)
+massanova$Significance <- "   "
+massanova$Significance[massanova$`Pr(>Chisq)`<.05] <- "*  "
+massanova$Significance[massanova$`Pr(>Chisq)`<.001] <- "***"
+massanova$`Pr(>Chisq)` <- format(massanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+massanova$`Pr(>Chisq)` <- as.character(massanova$`Pr(>Chisq)`)
+massanova <- massanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+rownames(massanova) <- c()
+
+devinstmassanova <- cbind(devinstanova, massanova)
+options(knitr.kable.NA = '')
+kable(devinstmassanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p","<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Time to adult" = 3, "Mass at adult" = 3)) #%>% save_kable("Tab1_devinstmassanova.png")
+```
+
+##Table S1
+```{r}
+devinstcoeff <- summary(devinstmod)
+devinstcoeff <- data.frame(devinstcoeff[["coefficients"]])
+devinstcoeff$Significance <- "   "
+devinstcoeff$Significance[devinstcoeff$`Pr...t..`<.05] <- "*  "
+devinstcoeff$Significance[devinstcoeff$`Pr...t..`<.001] <- "***"
+devinstcoeff$`Pr...t..` <- format(devinstcoeff$`Pr...t..`, scientific=TRUE, digits=3)
+devinstcoeff$`Pr...t..` <- as.character(devinstcoeff$`Pr...t..`)
+devinstcoeff <- devinstcoeff %>% unite(p, c(`Pr...t..`, Significance), sep="")
+rownames(devinstcoeff) <- rownames(devinstcoeff) %>% str_remove_all(paste(c("Sex", "Temperature", "Photoperiod", "Site"), collapse = "|")) %>% str_replace("LV", "Low var") %>% str_replace("S", "Short")
+#shorter alternative is get rid of current str_replaces and add str_replace("Male", "M")
+
+masscoeff <- summary(massmod)
+masscoeff <- data.frame(masscoeff[["coefficients"]])
+masscoeff$Significance <- "   "
+masscoeff$Significance[masscoeff$`Pr...t..`<.05] <- "*  "
+masscoeff$Significance[masscoeff$`Pr...t..`<.001] <- "***"
+masscoeff$`Pr...t..` <- format(masscoeff$`Pr...t..`, scientific=TRUE, digits=3)
+masscoeff$`Pr...t..` <- as.character(masscoeff$`Pr...t..`)
+masscoeff <- masscoeff %>% unite(p, c(`Pr...t..`, Significance), sep="")
+rownames(masscoeff) <- c()
+
+devinstmasscoeff <- cbind(devinstcoeff, masscoeff)
+options(knitr.kable.NA = '')
+kable(devinstmasscoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Time to adult (d)" = 5, "Mass at adult (g)" = 5)) #%>% save_kable("TabS1_devinstmasscoeff.png")
+
+
+
+```
+
+
+## IMPORTANT NOTE: S2 and S3 mass values are new!
+##Table S2: Development and mass by instar anova
+```{r}
+devinstanova <- Anova(devinstmod, type=3)
+devinstanova$Significance <- "   "
+devinstanova$Significance[devinstanova$`Pr(>Chisq)`<.05] <- "*  "
+devinstanova$Significance[devinstanova$`Pr(>Chisq)`<.001] <- "***"
+devinstanova$`Pr(>Chisq)` <- format(devinstanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+devinstanova$`Pr(>Chisq)` <- as.character(devinstanova$`Pr(>Chisq)`)
+devinstanova <- devinstanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+
+massinstanova <- Anova(massinstmod, type=3)
+massinstanova$Significance <- "   "
+massinstanova$Significance[massinstanova$`Pr(>Chisq)`<.05] <- "*  "
+massinstanova$Significance[massinstanova$`Pr(>Chisq)`<.001] <- "***"
+massinstanova$`Pr(>Chisq)` <- format(massinstanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+massinstanova$`Pr(>Chisq)` <- as.character(massinstanova$`Pr(>Chisq)`)
+massinstanova <- massinstanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+rownames(massinstanova) <- c()
+
+devinstmassinstanova <- cbind(devinstanova, massinstanova)
+options(knitr.kable.NA = '')
+kable(devinstmassinstanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p","<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age" = 3, "Mass" = 3)) #%>% save_kable("TabS2_devinstmassinstanova.png")
+```
+
+
+##Table S3: Development and mass by instar coefficients
+```{r}
+devinstcoeff <- summary(devinstmod)
+devinstcoeff <- data.frame(devinstcoeff[["coefficients"]])
+devinstcoeff$Significance <- "   "
+devinstcoeff$Significance[devinstcoeff$`Pr...t..`<.05] <- "*  "
+devinstcoeff$Significance[devinstcoeff$`Pr...t..`<.001] <- "***"
+devinstcoeff$`Pr...t..` <- format(devinstcoeff$`Pr...t..`, scientific=TRUE, digits=3)
+devinstcoeff$`Pr...t..` <- as.character(devinstcoeff$`Pr...t..`)
+devinstcoeff <- devinstcoeff %>% unite(p, c(`Pr...t..`, Significance), sep="")
+rownames(devinstcoeff) <- rownames(devinstcoeff) %>% str_remove_all(paste(c("Sex", "Temperature", "Photoperiod", "Site"), collapse = "|")) %>% str_replace("LV", "Low var") %>% str_replace("S", "Short")
+#shorter alternative is get rid of current str_replaces and add str_replace("Male", "M")
+
+massinstcoeff <- summary(massinstmod)
+massinstcoeff <- data.frame(massinstcoeff[["coefficients"]])
+massinstcoeff$Significance <- "   "
+massinstcoeff$Significance[massinstcoeff$`Pr...t..`<.05] <- "*  "
+massinstcoeff$Significance[massinstcoeff$`Pr...t..`<.001] <- "***"
+massinstcoeff$`Pr...t..` <- format(massinstcoeff$`Pr...t..`, scientific=TRUE, digits=3)
+massinstcoeff$`Pr...t..` <- as.character(massinstcoeff$`Pr...t..`)
+massinstcoeff <- massinstcoeff %>% unite(p, c(`Pr...t..`, Significance), sep="")
+rownames(massinstcoeff) <- c()
+
+devinstmassinstcoeff <- cbind(devinstcoeff, masscoeff)
+options(knitr.kable.NA = '')
+kable(devinstmassinstcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age (d)" = 5, "Mass (g)" = 5)) #%>% save_kable("TabS1_devinstmasscoeff.png")
+```
+
+
+##PBT, CTmin, CTmax
+##Fig 2
+```{r}
+CTminmax <- CT %>% 
+  rename(`CTmin (C)`= CT_min, `CTmax (C)`= CT_max) %>%
+  gather(key="meas", value="y", `CTmin (C)`, `CTmax (C)`)
+
+PBTnew <- PBT %>% filter(!is.na(Sex)) %>% #WONDERING if I should exclude Sex=NA when PBT is loaded
+  rename(`Mean PBT (C)`= Tb_Mean) %>% gather(key="meas", value="y", `Mean PBT (C)`)
+
+CTPBT <- merge(CTminmax, PBTnew, all = TRUE)
+
+
+neworder <- c("CTmax (C)", "Mean PBT (C)", "CTmin (C)")
+CTPBT2 <- arrange(transform(CTPBT,
+             meas=factor(meas,levels=neworder)),meas)
+
+ggplot(data = CTPBT2, aes(x = Site, y = y, color = Temperature, linetype=Sex, shape=Sex)) +
+  facet_grid(meas~Photoperiod, scales="free_y", labeller=labeller(Photoperiod = Photoperiod.labs), switch="y") +
+  stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  xlab("Site")+scale_color_manual(labels=Temperature.labs, values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1)) + theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1), axis.title.y = element_blank(), strip.background.y = element_blank(),  strip.placement = "outside")
+
+```
+
+
+#LATER
+```{r}
+# #table for CTmin
+# a <- Anova(lm_txl_min, type=3)
+# a$Significance <- "   "
+# a$Significance[a$`Pr(>F)`<.05] <- "*  "
+# a$Significance[a$`Pr(>F)`<.001] <- "***"
+# a$`Pr(>F)` <- format(a$`Pr(>F)`, scientific=TRUE, digits=3)
+# a$`Pr(>F)` <- as.character(a$`Pr(>F)`)
+# a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+# a[5,4] <- NA
+# b <- Anova(lm_txl_max, type=3)
+# rownames(b) <- c()
+# b$Significance <- "   "
+# b$Significance[b$`Pr(>F)`<.05] <- "*  "
+# b$Significance[b$`Pr(>F)`<.001] <- "***"
+# b$`Pr(>F)` <- format(b$`Pr(>F)`, scientific=TRUE, digits=3)
+# b$`Pr(>F)` <- as.character(b$`Pr(>F)`)
+# b <- b %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+# b[5,4] <- NA
+# a <- cbind(a,b)
+# options(knitr.kable.NA = '')
+# kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4)) #%>% save_kable("CTminmaxanova.png")
+
+```

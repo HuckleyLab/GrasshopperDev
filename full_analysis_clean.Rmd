@@ -677,7 +677,7 @@ M_Instars_Adult_Long$Instar=3
 M_Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_4th"]=4
 M_Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_5th"]=5
 M_Instars_Adult_Long$Instar[Instars_Adult_Long$variable=="Age_Adult"]=6
-
+#^THIS IS AN ISSUE! SEE analysis_concise_clean.Rmd
 ```
 
 ```{r}
@@ -1373,7 +1373,14 @@ ggplot(data = CTminmax, aes(x = Site, y = y, color = Temperature, linetype=Sex))
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
   xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_linetype_discrete(labels=c("Female", "Male")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1), axis.title.y = element_blank(), strip.background.y = element_blank(),  strip.placement = "outside") 
 
-
+#add in preferred body temp
+# ggplot(data = PBT %>% filter(!is.na(Sex)), aes(x = Site, y = Tb_Mean, color = Temp)) +
+# #  rory_theme +
+#   facet_grid(Sex~Light, labeller=labeller(Sex = sex.labs, Light = Light.labs)) +
+#   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+#   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+#   stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 4) +
+#   ylab("Mean PBT (C)") + xlab("Site")+scale_color_manual(name="Temp var", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
 
 ```
 
