@@ -286,11 +286,16 @@ elevation of site of origin (Site), and sex (Sex) affect adult mass?
 
 Check normal... well so it's not the most normal but at the moment I treat it like it is
 ```{r}
-hist(as.numeric(Instars$Mass_Adult), breaks = 15)
+hist(as.numeric(Instars$Mass_Adult), breaks = 15)  
+
+#a log would help a bit
+#could also consider gamma
+#in either of these cases glmer says model failed to converge for most complex
 ```
 
 Model selection / AIC comparison 
 ```{r}
+
 LmerM0 <- lmer(as.numeric(Mass_Adult) ~ Sex * Site * Temperature * Photoperiod + 
                  (1|Female2), 
                REML = FALSE,
@@ -334,7 +339,93 @@ aictab(list(LmerM0, LmerM1, LmerM2, LmerM3, LmerM4, LmerM5), modnames = c("LmerM
 massmod <- LmerM0
 
 ```
+##TESTING OTHERS
+log
+```{r}
 
+# LmerM0 <- glmer(as.numeric(Mass_Adult) ~ Sex * Site * Temperature * Photoperiod + 
+#                  (1|Female2), 
+#                family = gaussian(link="log"),
+#                na.action = 'na.omit', data = Instars_names)
+# 
+# LmerM1 <- glmer(as.numeric(Mass_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+#                  Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+#                  Site:Photoperiod:Temperature +
+#                  (1|Female2), 
+#                family = gaussian(link="log"), 
+#                na.action = 'na.omit', data = Instars_names) #singular
+# 
+# LmerM2 <- glmer(as.numeric(Mass_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+#                  Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+#                  (1|Female2), 
+#                family = gaussian(link="log"),
+#                na.action = 'na.omit', data = Instars_names)
+# 
+# LmerM3 <- glmer(as.numeric(Mass_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+#                  Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+#                  (1|Female2), 
+#                family = gaussian(link="log"),
+#                na.action = 'na.omit', data = Instars_names) #singular
+# 
+# LmerM4 <- glmer(as.numeric(Mass_Adult) ~ Site + Temperature + Photoperiod + 
+#                  Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+#                  (1|Female2), 
+#                family = gaussian(link="log"), 
+#                na.action = 'na.omit', data = Instars_names) #singular
+# 
+# LmerM5 <- glmer(as.numeric(Mass_Adult) ~ Site + Temperature + Photoperiod + 
+#                  Site:Temperature + Site:Photoperiod + Temperature:Photoperiod +
+#                  (1|Female2), 
+#                family = gaussian(link="log"),
+#                na.action = 'na.omit', data = Instars_names) #singular
+# 
+# aictab(list(LmerM0, LmerM1, LmerM2, LmerM3, LmerM4, LmerM5), modnames = c( "LmerM0", "LmerM1", "LmerM2", "LmerM3", "LmerM4", "LmerM5"))
+# 
+# #lower AIC, but "Model failed to converge" each time, less clear which model to choose
+```
+gamma
+```{r}
+
+# LmerM0 <- glmer(as.numeric(Mass_Adult) ~ Sex * Site * Temperature * Photoperiod + 
+#                  (1|Female2), 
+#                family = Gamma,
+#                na.action = 'na.omit', data = Instars_names)
+# 
+# LmerM1 <- glmer(as.numeric(Mass_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+#                  Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+#                  Site:Photoperiod:Temperature +
+#                  (1|Female2), 
+#                family = Gamma, 
+#                na.action = 'na.omit', data = Instars_names) #singular
+# 
+# LmerM2 <- glmer(as.numeric(Mass_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+#                  Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+#                  (1|Female2), 
+#                family = Gamma,
+#                na.action = 'na.omit', data = Instars_names)
+# 
+# LmerM3 <- glmer(as.numeric(Mass_Adult) ~ Sex + Site + Temperature + Photoperiod + 
+#                  Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+#                  (1|Female2), 
+#                family = Gamma,
+#                na.action = 'na.omit', data = Instars_names) #singular
+# 
+# LmerM4 <- glmer(as.numeric(Mass_Adult) ~ Site + Temperature + Photoperiod + 
+#                  Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+#                  (1|Female2), 
+#                family = Gamma, 
+#                na.action = 'na.omit', data = Instars_names) #singular
+# 
+# LmerM5 <- glmer(as.numeric(Mass_Adult) ~ Site + Temperature + Photoperiod + 
+#                  Site:Temperature + Site:Photoperiod + Temperature:Photoperiod +
+#                  (1|Female2), 
+#                family = Gamma,
+#                na.action = 'na.omit', data = Instars_names) #singular
+# 
+# aictab(list(LmerM0, LmerM1, LmerM2, LmerM3, LmerM4, LmerM5), modnames = c( "LmerM0", "LmerM1", "LmerM2", "LmerM3", "LmerM4", "LmerM5"))
+# 
+# #even lower AIC, but fails to converge each time
+```
 
 ## Mass by instar
 ```{r}
@@ -476,12 +567,12 @@ rownames(massinstcoeff) <- c()
 
 devinstmassinstcoeff <- cbind(devinstcoeff, masscoeff)
 options(knitr.kable.NA = '')
-kable(devinstmassinstcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age (d)" = 5, "Mass (g)" = 5)) #%>% save_kable("TabS1_devinstmasscoeff.png")
+kable(devinstmassinstcoeff, digits=1, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age (d)" = 5, "Mass (g)" = 5)) #%>% save_kable("TabS1_devinstmasscoeff.png")
 ```
 
 
-##PBT, CTmin, CTmax
-##Fig 2
+#PBT, CTmin, CTmax
+##Figure 2: PBT, CTmin, CTmax
 ```{r}
 CTminmax <- CT %>% 
   rename(`CTmin (C)`= CT_min, `CTmax (C)`= CT_max) %>%
@@ -505,29 +596,255 @@ ggplot(data = CTPBT2, aes(x = Site, y = y, color = Temperature, linetype=Sex, sh
 
 ```
 
+##PBT
 
-#LATER
 ```{r}
-# #table for CTmin
-# a <- Anova(lm_txl_min, type=3)
-# a$Significance <- "   "
-# a$Significance[a$`Pr(>F)`<.05] <- "*  "
-# a$Significance[a$`Pr(>F)`<.001] <- "***"
-# a$`Pr(>F)` <- format(a$`Pr(>F)`, scientific=TRUE, digits=3)
-# a$`Pr(>F)` <- as.character(a$`Pr(>F)`)
-# a <- a %>% unite(p, c(`Pr(>F)`, Significance), sep="")
-# a[5,4] <- NA
-# b <- Anova(lm_txl_max, type=3)
-# rownames(b) <- c()
-# b$Significance <- "   "
-# b$Significance[b$`Pr(>F)`<.05] <- "*  "
-# b$Significance[b$`Pr(>F)`<.001] <- "***"
-# b$`Pr(>F)` <- format(b$`Pr(>F)`, scientific=TRUE, digits=3)
-# b$`Pr(>F)` <- as.character(b$`Pr(>F)`)
-# b <- b %>% unite(p, c(`Pr(>F)`, Significance), sep="")
-# b[5,4] <- NA
-# a <- cbind(a,b)
-# options(knitr.kable.NA = '')
-# kable(a, digits=3, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4)) #%>% save_kable("CTminmaxanova.png")
+hist(PBT_Long$value) #looks fairly normal
+```
+
+```{r}
+LmerPBT.0 <- lmer(value ~ Sex * Site * Temperature * Photoperiod + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long) #initially attempted to include batch and female, but so little variation that the scales were off and the model showed errors
+
+LmerPBT.1 <- lmer(value ~ Sex + Site + Temperature + Photoperiod + 
+                    Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+                    Site:Photoperiod:Temperature +
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.2 <- lmer(value ~ Sex + Site + Temperature + Photoperiod + 
+                    Sex:Site + Sex:Temperature + Sex:Photoperiod + Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.3 <- lmer(value ~ Sex + Site + Temperature + Photoperiod + 
+                    Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.4 <- lmer(value ~ Site + Temperature + Photoperiod + 
+                    Site:Temperature + Site:Photoperiod + Temperature:Photoperiod + Site:Temperature:Photoperiod +
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.5 <- lmer(value ~ Site + Temperature + Photoperiod + 
+                    Site:Temperature + Site:Photoperiod + Temperature:Photoperiod +
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+LmerPBT.6 <- lmer(value ~ Sex + Site + Temperature + Photoperiod + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, #this was initially commented out
+                  data = PBT_Long)
+
+LmerPBT.7 <- lmer(value ~ Site + Temperature + Photoperiod + 
+                    (1|Individual), na.action = 'na.omit', 
+                  REML = FALSE, 
+                  data = PBT_Long)
+
+aictab(list(LmerPBT.0, LmerPBT.1, LmerPBT.2, LmerPBT.3, LmerPBT.4, LmerPBT.5, LmerPBT.6, LmerPBT.7), modnames = c("LmerPBT.0", "LmerPBT.1", "LmerPBT.2", "LmerPBT.3", "LmerPBT.4", "LmerPBT.5", "LmerPBT.6", "LmerPBT.7"))
+#LmerPBT.6 is the preferred model, delta AIC = 7.14 (no interactions)
+
+PBTmod <- LmerPBT.6
+```
+
+## Table 2 (could be merged w table 3 but it might look weird... will experiment with that)
+```{r}
+PBTanova <- Anova(PBTmod, type=3)
+PBTanova$Significance <- "   "
+PBTanova$Significance[PBTanova$`Pr(>Chisq)`<.05] <- "*  "
+PBTanova$Significance[PBTanova$`Pr(>Chisq)`<.001] <- "***"
+PBTanova$`Pr(>Chisq)` <- format(PBTanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+PBTanova$`Pr(>Chisq)` <- as.character(PBTanova$`Pr(>Chisq)`)
+PBTanova <- PBTanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+options(knitr.kable.NA = '')
+kable(PBTanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("tab2_PBT.png")
+```
+##Table S4: PBT coefficients
+```{r}
+PBTcoeff <- summary(PBTmod)
+PBTcoeff <- data.frame(PBTcoeff[["coefficients"]])
+PBTcoeff$Significance <- "   "
+PBTcoeff$Significance[PBTcoeff$`Pr...t..`<.05] <- "*  "
+PBTcoeff$Significance[PBTcoeff$`Pr...t..`<.001] <- "***"
+PBTcoeff$`Pr...t..` <- format(PBTcoeff$`Pr...t..`, scientific=TRUE, digits=3)
+PBTcoeff$`Pr...t..` <- as.character(PBTcoeff$`Pr...t..`)
+PBTcoeff <- PBTcoeff %>% unite(p, c(`Pr...t..`, Significance), sep="")
+rownames(PBTcoeff) <- rownames(PBTcoeff) %>% str_remove_all(paste(c("Sex", "Temperature", "Photoperiod", "Site"), collapse = "|")) %>% str_replace("LV", "Low var") %>% str_replace("S", "Short")
+#shorter alternative is get rid of current str_replaces and add str_replace("Male", "M")
+options(knitr.kable.NA = '')
+kable(PBTcoeff, digits=1, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("TabS4_PBTcoeff.png")
+```
+##CTmin
+
+```{r}
+#exploring CT_min without random effects 
+
+lm_site_min <- lm(as.numeric(CT_min) ~ Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_temp_min <- lm(as.numeric(CT_min) ~ Temperature,
+                 na.action = 'na.omit', data = CT)
+
+lm_light_min <- lm(as.numeric(CT_min) ~ Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_sex_min <- lm(as.numeric(CT_min) ~ Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_st_min <- lm(as.numeric(CT_min) ~ Site + Temperature,
+                 na.action = 'na.omit', data = CT)
+
+lm_sl_min <- lm(as.numeric(CT_min) ~ Site + Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_tl_min <- lm(as.numeric(CT_min) ~ Temperature + Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_sS_min <- lm(as.numeric(CT_min) ~ Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_tS_min <- lm(as.numeric(CT_min) ~ Temperature + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_lS_min <- lm(as.numeric(CT_min) ~ Photoperiod + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxt_min <- lm(as.numeric(CT_min) ~ Site * Temperature,
+                 na.action = 'na.omit', data = CT)
+
+lm_sxl_min <- lm(as.numeric(CT_min) ~ Site * Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_txl_min <- lm(as.numeric(CT_min) ~ Temperature * Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_stl_min <- lm(as.numeric(CT_min) ~ Temperature + Photoperiod + Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_stlS_min <- lm(as.numeric(CT_min) ~ Temperature + Photoperiod + Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxtxl_min <- lm(as.numeric(CT_min) ~ Temperature * Photoperiod * Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_sxtxlxS_min <- lm(as.numeric(CT_min) ~ Temperature * Photoperiod * Site * Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+aictab(list(lm_site_min, lm_temp_min, lm_light_min, lm_sex_min, lm_st_min, lm_sl_min, lm_tl_min, lm_sS_min, lm_tS_min, lm_lS_min, lm_sxt_min, lm_sxl_min, lm_txl_min, lm_stl_min, lm_stl_min, lm_sxtxl_min, lm_sxtxlxS_min), modnames = c("lm_site_min", "lm_temp_min", "lm_light_min", "lm_sex_min", "lm_st_min", "lm_sl_min", "lm_tl_min", "lm_sS_min", "lm_tS_min", "lm_lS_min", "lm_sxt_min", "lm_sxl_min", "lm_txl_min", "lm_stl_min","lm_stlS_min", "lm_sxtxl_min", "lm_sxtxlxS_min"))
+
+#select Temperature * Photoperiod
+CTminmod <- lm_txl_min
+```
+
+Random effect leads to singularity issues and slightly worse AIC (same is true for CTmax)
+```{r}
+Lmermin_txl <- lmer(as.numeric(CT_min) ~ Temperature * Photoperiod +
+                   (1|Female),
+                 REML = FALSE,
+                 na.action = 'na.omit', data = CT)
+#singular
+
+AIC(lm_txl_min, Lmermin_txl)
+```
+
+## CTmax
+```{r}
+#exploring CT_max without random effects 
+
+lm_site_max <- lm(as.numeric(CT_max) ~ Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_temp_max <- lm(as.numeric(CT_max) ~ Temperature,
+                 na.action = 'na.omit', data = CT)
+
+lm_light_max <- lm(as.numeric(CT_max) ~ Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_sex_max <- lm(as.numeric(CT_max) ~ Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_st_max <- lm(as.numeric(CT_max) ~ Site + Temperature,
+                 na.action = 'na.omit', data = CT)
+
+lm_sl_max <- lm(as.numeric(CT_max) ~ Site + Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_tl_max <- lm(as.numeric(CT_max) ~ Temperature + Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_sS_max <- lm(as.numeric(CT_max) ~ Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_tS_max <- lm(as.numeric(CT_max) ~ Temperature + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_lS_max <- lm(as.numeric(CT_max) ~ Photoperiod + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxt_max <- lm(as.numeric(CT_max) ~ Site * Temperature,
+                 na.action = 'na.omit', data = CT)
+
+lm_sxl_max <- lm(as.numeric(CT_max) ~ Site * Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_txl_max <- lm(as.numeric(CT_max) ~ Temperature * Photoperiod,
+                 na.action = 'na.omit', data = CT)
+
+lm_stl_max <- lm(as.numeric(CT_max) ~ Temperature + Photoperiod + Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_stlS_max <- lm(as.numeric(CT_max) ~ Temperature + Photoperiod + Site + Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+lm_sxtxl_max <- lm(as.numeric(CT_max) ~ Temperature * Photoperiod * Site,
+                 na.action = 'na.omit', data = CT)
+
+lm_sxtxlxS_max <- lm(as.numeric(CT_max) ~ Temperature * Photoperiod * Site * Sex,
+                 na.action = 'na.omit', data = CT) #new
+
+aictab(list(lm_site_max, lm_temp_max, lm_light_max, lm_sex_max, lm_st_max, lm_sl_max, lm_tl_max, lm_sS_max, lm_tS_max, lm_lS_max, lm_sxt_max, lm_sxl_max, lm_txl_max, lm_stl_max, lm_stl_max, lm_sxtxl_max, lm_sxtxlxS_max), modnames = c("lm_site_max", "lm_temp_max", "lm_light_max", "lm_sex_max", "lm_st_max", "lm_sl_max", "lm_tl_max", "lm_sS_max", "lm_tS_max", "lm_lS_max", "lm_sxt_max", "lm_sxl_max", "lm_txl_max", "lm_stl_max","lm_stlS_max", "lm_sxtxl_max", "lm_sxtxlxS_max"))
+
+#ultimately select Temperature * Photoperiod (delta AIC=1.06) to go with CTmin
+CTmaxmod <- lm_txl_max
 
 ```
+
+
+##Table 3: CTmin and CTmax ANOVA
+```{r}
+#table for CTmin
+CTminanova <- Anova(lm_txl_min, type=3)
+CTminanova$Significance <- "   "
+CTminanova$Significance[CTminanova$`Pr(>F)`<.05] <- "*  "
+CTminanova$Significance[CTminanova$`Pr(>F)`<.001] <- "***"
+CTminanova$`Pr(>F)` <- format(CTminanova$`Pr(>F)`, scientific=TRUE, digits=3)
+CTminanova$`Pr(>F)` <- as.character(CTminanova$`Pr(>F)`)
+CTminanova <- CTminanova %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+CTminanova[5,4] <- NA
+CTmaxanova <- Anova(lm_txl_max, type=3)
+rownames(CTmaxanova) <- c()
+CTmaxanova$Significance <- "   "
+CTmaxanova$Significance[CTmaxanova$`Pr(>F)`<.05] <- "*  "
+CTmaxanova$Significance[CTmaxanova$`Pr(>F)`<.001] <- "***"
+CTmaxanova$`Pr(>F)` <- format(CTmaxanova$`Pr(>F)`, scientific=TRUE, digits=3)
+CTmaxanova$`Pr(>F)` <- as.character(CTmaxanova$`Pr(>F)`)
+CTmaxanova <- CTmaxanova %>% unite(p, c(`Pr(>F)`, Significance), sep="")
+CTmaxanova[5,4] <- NA
+CTminmaxanova <- cbind(CTminanova,CTmaxanova)
+options(knitr.kable.NA = '')
+kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4)) #%>% save_kable("CTminmaxanova.png")
+
+```
+##
+```{r}
+
+```
+
