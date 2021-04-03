@@ -603,32 +603,6 @@ massinstmod <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod *
 ```
 
 
-```{r}
-a <- Anova(massinstmod, type=3)
-a$Significance <- "   "
-a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
-a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
-a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
-a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
-a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
-options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() ## %>% save_kable("massinstarnumericanova.png") 
-```
-
-```{r}
-a <- Anova(massinstmod, type=3)
-a$Significance <- "   "
-a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
-a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
-a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
-a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
-a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
-options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() ## %>% save_kable("devinstarnumericanova.png")
-
-```
-
-
 ##Table 1: Adult age and mass anova
 ```{r}
 devanova <- Anova(devmod, type=3)
@@ -650,7 +624,7 @@ rownames(massanova) <- c()
 
 devmassanova <- cbind(devanova, massanova)
 options(knitr.kable.NA = '')
-kable(devmassanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p","<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Time to adult" = 3, "Mass at adult" = 3)) # %>% save_kable("Tables/Tab1_devmassanova.png")
+kable(devmassanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p","<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Time to adult" = 3, "Mass at adult" = 3)) #%>% save_kable("Tables/Tab1_devmassanova.png")
 ```
 
 ##Table S1: Age and mass coefficients
@@ -678,7 +652,7 @@ rownames(masscoeff) <- c()
 
 devmasscoeff <- cbind(devcoeff, masscoeff)
 options(knitr.kable.NA = '')
-kable(devmasscoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Time to adult (d)" = 5, "Mass at adult (g)" = 5)) # %>% save_kable("Tables/TabS1_devmasscoeff.png")
+kable(devmasscoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Time to adult (d)" = 5, "Mass at adult (g)" = 5)) %>% save_kable("Tables/TabS1_devmasscoeff.png")
 
 #change to digits=1? Or keep as is bc it's supplemental and might as well be precise... seems the latter is fine
 
@@ -707,7 +681,7 @@ rownames(massinstanova) <- c()
 
 devmassinstanova <- cbind(devinstanova, massinstanova)
 options(knitr.kable.NA = '')
-kable(devmassinstanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p","<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age" = 3, "Mass" = 3)) ## %>% save_kable("Tables/TabS2_devmassinstanova.png")
+kable(devmassinstanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p","<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age" = 3, "Mass" = 3)) #%>% save_kable("Tables/TabS2_devmassinstanova.png")
 ```
 
 
@@ -736,7 +710,7 @@ rownames(massinstcoeff) <- c()
 
 devmassinstcoeff <- cbind(devinstcoeff, massinstcoeff)
 options(knitr.kable.NA = '')
-kable(devmassinstcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age (d)" = 5, "Mass (g)" = 5)) # %>% save_kable("Tables/TabS3_devmassinstcoeff.png")
+kable(devmassinstcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age (d)" = 5, "Mass (g)" = 5)) #%>% save_kable("Tables/TabS3_devmassinstcoeff.png")
 ```
 
 
@@ -837,7 +811,7 @@ PBTanova$`Pr(>Chisq)` <- format(PBTanova$`Pr(>Chisq)`, scientific=TRUE, digits=3
 PBTanova$`Pr(>Chisq)` <- as.character(PBTanova$`Pr(>Chisq)`)
 PBTanova <- PBTanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(PBTanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() # %>% save_kable("Tables/Tab2_PBTanova.png")
+kable(PBTanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("Tables/Tab2_PBTanova.png")
 ```
 ##Table S4: PBT coefficients
 ```{r}
@@ -852,7 +826,7 @@ PBTcoeff <- PBTcoeff %>% unite(p, c(`Pr...t..`, Significance), sep="")
 rownames(PBTcoeff) <- rownames(PBTcoeff) %>% str_remove_all(paste(c("Sex", "Temperature", "Photoperiod", "Site"), collapse = "|")) %>% str_replace("S", "Short")
 #shorter alternative is get rid of current str_replaces and add str_replace("Male", "M")
 options(knitr.kable.NA = '')
-kable(PBTcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() # %>% save_kable("Tables/TabS4_PBTcoeff.png")
+kable(PBTcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("Tables/TabS4_PBTcoeff.png")
 ```
 ##CTmin
 
@@ -1014,7 +988,7 @@ CTmaxanova[5,4] <- NA
 
 CTminmaxanova <- cbind(CTminanova,CTmaxanova)
 options(knitr.kable.NA = '')
-kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4)) ## %>% save_kable("Tables/Tab3_CTminmaxanova.png")
+kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4)) %>% save_kable("Tables/Tab3_CTminmaxanova.png")
 
 ```
 ## Table S5: CTmin and CTmax coefficients
@@ -1042,10 +1016,12 @@ rownames(CTmaxcoeff) <- c()
 
 CTminmaxcoeff <- cbind(CTmincoeff, CTmaxcoeff)
 options(knitr.kable.NA = '')
-kable(CTminmaxcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p", "Coefficient", "Std. Error",  "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin (°C)" = 4, "CTmax (°C)" = 4)) # %>% save_kable("Tables/TabS5_CTminmaxcoeff.png")
+kable(CTminmaxcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p", "Coefficient", "Std. Error",  "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin (°C)" = 4, "CTmax (°C)" = 4)) #%>% save_kable("Tables/TabS5_CTminmaxcoeff.png")
 ```
 
 #Performance
+
+Tables still incomplete
 
 ##Figure 3: Hopping and feeding performance
 ```{r}
@@ -1054,18 +1030,21 @@ p.hop <- ggplot(data = Hop_Long, aes(x = TestTemp, y = value, col = Site)) +
   stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
   stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("Hopping distance (cm)") + xlab("Test temperature (°C)") + theme_bw() + theme(strip.background = element_blank()) + coord_cartesian(xlim=c(10, 40))
+  ylab("Hopping distance (cm)") + xlab("") + theme_bw() + theme(strip.background = element_blank(), legend.position="none") + coord_cartesian(xlim=c(10, 40))
 
 p.feed <- ggplot(data = FeedPLmass, aes(x = TestTemp, y = Tot_Consumed_scaled, col = Site)) +
   facet_grid(Temperature~Sex+Photoperiod, labeller=labeller(Photoperiod = Photoperiod.labs)) +
   stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
   stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
-  ylab("Mass-scaled leaf area consumed (cm2/g, 8h)") + xlab("Test temperature (°C)") + theme_bw() + theme(strip.background = element_blank(), axis.title.y = element_text(size=9)) + coord_cartesian(xlim=c(10, 40))#+ xlim(10,40)
+  ylab("Mass-scaled leaf area consumed (cm²/g, 8h)") + xlab("Test temperature (°C)") + theme_bw() + theme(strip.background = element_blank(), axis.title.y = element_text(size=9), legend.position="bottom") + coord_cartesian(xlim=c(10, 40))
 
-p.perf <- plot_grid(p.hop, p.feed, labels = c('a', 'b'), nrow=2) 
+legend <- get_legend(p.feed)
+#plot_grid(p.hop, p.feed + theme(legend.position="none"), legend, labels = c('a', 'b'), nrow=2)
 
-#ggsave(p.perf, file="Figures/Fig3_perf.png")
+p.perf <- plot_grid(p.hop, p.feed + theme(legend.position="none"), labels = c('a', 'b'), nrow=2) 
+p.perf <- plot_grid(p.perf, legend, nrow=2, rel_heights = c(2, .1))
+ggsave(p.perf, file="Figures/Fig3_perf.png")
 p.perf #it looks weird in Rstudio for me but it's fine in the saved image (7x7)
 ```
 
@@ -1077,6 +1056,26 @@ visualize
 
 ```
 
+```{r}
+#fullmodel
+hopmod1 <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temperature * Photoperiod + 
+                   #(1|variable/ID/Female2), #original
+                   #(1|Female2/ID/variable), #this gave a singularity issue 
+                   (1|Female2/ID), #+ (1|variable), #so this did work -- might wanna double check it!
+                 REML = FALSE, #
+                 na.action = 'na.omit', data = Hop_Long)
+hopmod2 <- lmer(value ~ TestTemp * Sex * Site * Temperature * Photoperiod + 
+                   #(1|variable/ID/Female2), #original
+                   #(1|Female2/ID/variable), #this gave a singularity issue 
+                   (1|Female2/ID), #+ (1|variable), #so this did work -- might wanna double check it!
+                 REML = FALSE, #
+                 na.action = 'na.omit', data = Hop_Long)
+
+aictab(list(hopmod1, hopmod2))
+
+```
+
+
 
 ```{r}
 #fullmodel
@@ -1084,7 +1083,7 @@ hopmod <- lmer(value ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temperature 
                    #(1|variable/ID/Female2), #original
                    #(1|Female2/ID/variable), #this gave a singularity issue 
                    (1|Female2/ID), #+ (1|variable), #so this did work -- might wanna double check it!
-                 #REML = FALSE,
+                 REML = FALSE, #
                  na.action = 'na.omit', data = Hop_Long)
 ```
 
@@ -1102,31 +1101,6 @@ options(knitr.kable.NA = '')
 kable(hopanova, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("hopanova.png")
 ```
 
-```{r}
-#fullmodel
-hopmodlongtt <- lmer(value ~ TestTemp * I(TestTemp^2) * Sex * Site * Temperature * Photoperiod 
-               - (TestTemp:I(TestTemp^2)* Sex * Site * Temperature * Photoperiod) 
-               + Sex * Site * Temperature * Photoperiod +
-                   #(1|variable/ID/Female2), #original
-                   #(1|Female2/ID/variable), #this gave a singularity issue 
-                   (1|Female2/ID), #+ (1|variable), #so this did work -- might wanna double check it!
-                 #REML = FALSE,
-                 na.action = 'na.omit', data = Hop_Long)
-```
-
-
-```{r}
-hopanovalongtt <- Anova(hopmodlongtt, type=3)
-
-hopanovalongtt$Significance <- "   "
-hopanovalongtt$Significance[hopanovalongtt$`Pr(>Chisq)`<.05] <- "*  "
-hopanovalongtt$Significance[hopanovalongtt$`Pr(>Chisq)`<.001] <- "***"
-hopanovalongtt$`Pr(>Chisq)` <- format(hopanovalongtt$`Pr(>Chisq)`, scientific=TRUE, digits=3)
-hopanovalongtt$`Pr(>Chisq)` <- as.character(hopanovalongtt$`Pr(>Chisq)`)
-hopanovalongtt <- hopanovalongtt %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
-options(knitr.kable.NA = '')
-kable(hopanovalongtt, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("hopanovalongtt.png")
-```
 
 
 For later (coefficient code)
@@ -1145,7 +1119,15 @@ options(knitr.kable.NA = '')
 kable(s, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("hoppingcoeff.png")
 ```
 
-## Feeding... still choosing a model
+```{r}
+plot_model(hopmod, type= "pred", terms = c("TestTemp", "Photoperiod", "Temperature"), show.data=FALSE)
+```
+```{r}
+plot_model(hopmod, type= "pred", terms = c("Temperature", "Photoperiod"), show.data=FALSE)
+plot_model(hopmod, type= "pred", terms = c("Photoperiod", "Temperature"), show.data=FALSE)
+```
+
+## Feeding (shows choosing a model)
 ```{r}
 # LmerF0 <- lmer(Tot_Consumed_scaled ~ poly(TestTemp, 2, raw = TRUE) * Sex * Site * Temperature * Photoperiod + 
 #                  (1|Mom/ID), 
@@ -1227,7 +1209,10 @@ aictab(list(LmerF1, LmerF2, LmerF2.1, LmerF3, LmerF3.1, LmerF3.2, LmerF3.3, Lmer
 
 #why does he say 3.2 is selected when 3.5 appears higher? -- ah it's bc polynomial for 3 point is wrong
 
+feedmod <- LmerF1
+
 ```
+
 ```{r}
 a <- Anova(LmerF3.4, type=3)
 a$Significance <- "   "
@@ -1240,17 +1225,69 @@ options(knitr.kable.NA = '')
 kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("feedinganovasimple.png")
 ```
 
+
+## Table 4: Performance anova
 ```{r}
-a <- Anova(LmerF1, type=3)
-a$Significance <- "   "
-a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
-a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
-a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
-a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
-a <- a %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+hopanova <- Anova(hopmod, type=3)
+hopanova$Significance <- "   "
+hopanova$Significance[hopanova$`Pr(>Chisq)`<.05] <- "*  "
+hopanova$Significance[hopanova$`Pr(>Chisq)`<.001] <- "***"
+hopanova$`Pr(>Chisq)` <- format(hopanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+hopanova$`Pr(>Chisq)` <- as.character(hopanova$`Pr(>Chisq)`)
+hopanova <- hopanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+rownames(hopanova) <- rownames(hopanova) %>% str_replace("poly", "f") %>% str_remove(", 2, raw = TRUE")
+
+
+feedanova <- Anova(feedmod, type=3)
+rownames(feedanova) <- c()
+feedanova$Significance <- "   "
+feedanova$Significance[feedanova$`Pr(>Chisq)`<.05] <- "*  "
+feedanova$Significance[feedanova$`Pr(>Chisq)`<.001] <- "***"
+feedanova$`Pr(>Chisq)` <- format(feedanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
+feedanova$`Pr(>Chisq)` <- as.character(feedanova$`Pr(>Chisq)`)
+feedanova <- feedanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
+
+perfanova <- cbind(hopanova, feedanova)
+
 options(knitr.kable.NA = '')
-kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("feedinganovafull.png")
+kable(perfanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p","<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Hopping distance" = 3, "Leaf area consumed" = 3)) #%>% save_kable("Tables/Tab4_perfanova.png")
+
+
 ```
+## Table S5: Peformance Coefficients
+```{r}
+hopcoeff <- summary(hopmod)
+hopcoeff <- data.frame(hopcoeff[["coefficients"]])
+hopcoeff$Significance <- "   "
+hopcoeff$Significance[hopcoeff$`Pr...t..`<.05] <- "*  "
+hopcoeff$Significance[hopcoeff$`Pr...t..`<.001] <- "***"
+hopcoeff$`Pr...t..` <- format(hopcoeff$`Pr...t..`, scientific=TRUE, digits=3)
+hopcoeff$`Pr...t..` <- as.character(hopcoeff$`Pr...t..`)
+hopcoeff <- hopcoeff %>% unite(p, c(`Pr...t..`, Significance), sep="")
+rownames(hopcoeff) <- rownames(hopcoeff) %>% str_remove_all(paste(c("Sex", "Temperature", "Photoperiod", "Site"), collapse = "|")) %>% str_replace("S", "Short") %>% str_replace("poly\\(TestTemp, 2, raw = TRUE\\)1", "TestTemp") %>% str_replace("poly\\(TestTemp, 2, raw = TRUE\\)2", "TestTemp²")
+#shorter alternative is get rid of current str_replaces and add str_replace("Male", "M")
+kable(hopcoeff, digits=1, ccol.names=c("Coefficient", "Std. Error", "t", "p"), escape=FALSE, format="html") %>% kable_styling()
+
+feedcoeff <- summary(feedmod)
+feedcoeff <- data.frame(feedcoeff[["coefficients"]])
+feedcoeff$Significance <- "   "
+feedcoeff$Significance[feedcoeff$`Pr...t..`<.05] <- "*  "
+feedcoeff$Significance[feedcoeff$`Pr...t..`<.001] <- "***"
+feedcoeff$`Pr...t..` <- format(feedcoeff$`Pr...t..`, scientific=TRUE, digits=3)
+feedcoeff$`Pr...t..` <- as.character(feedcoeff$`Pr...t..`)
+feedcoeff <- feedcoeff %>% unite(p, c(`Pr...t..`, Significance), sep="")
+rownames(feedcoeff) <- rownames(feedcoeff) %>% str_remove_all(paste(c("Sex", "Temperature", "Photoperiod", "Site"), collapse = "|")) %>% str_replace("S", "Short") %>% str_replace("poly\\(TestTemp, 2, raw = TRUE\\)1", "TestTemp")
+
+perfcoeff <- merge(hopcoeff, feedcoeff, by="row.names", all=TRUE)
+perfcoeff <- transform(perfcoeff[match(rownames(hopcoeff), perfcoeff$Row.names),], row.names=Row.names, Row.names=NULL)
+#perfcoeff
+options(knitr.kable.NA = '')
+kable(perfcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Hopping distance (cm)" = 5, "Mass-scaled leaf area consumed (cm²/g, 8h)" = 5)) #%>% save_kable("Tables/TabS5_perfcoeff.png")
+
+```
+
+
+
 ```{r}
 plot_model(LmerF3.4, type= "pred", terms = c("TestTemp"), show.data=FALSE)
 ```
@@ -1282,3 +1319,10 @@ plot_model(LmerF3.4, type= "pred", terms = c("TestTemp", "Sex", "Site"), show.da
 ```{r}
 plot_model(LmerF1, type= "pred", terms = c("TestTemp", "Sex", "Site"), show.data=FALSE)
 ```
+
+```{r}
+
+plot_model(LmerF1, type= "pred", terms = c("TestTemp", "Temperature", "Photoperiod", "Site"), show.data=FALSE)
+
+```
+
