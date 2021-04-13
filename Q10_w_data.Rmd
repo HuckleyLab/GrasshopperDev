@@ -42,6 +42,7 @@ library(stringr)
 
 #webshot::install_phantomjs()
 library(kableExtra)
+library(nlme)
 
 source('Functions.R')
 
@@ -130,28 +131,6 @@ M_Instars_Adult_Long$Instar[M_Instars_Adult_Long$variable=="Mass_Adult"]=6
 
 ```
 
-Q10-related functions
-```{r}
-#test out Q10 equation
-#Q10=(R2/R1)^(10/(T2-T1))
-R2= function(T2, R1=1, Q10=1, T1=1) R1 *Q10^((T2-T1)/10)
-
-#functions for days development and growth
-#assumes R1=1 and arbitrarily requires 1000 units of development
-#use photoperiod to determine hours of each temperature (T2l and T2h)
-days.dev=function(Q10, T2l=22, T2h=26, T1=22, Pd=12, Pl=24-Pd)  1/(Pd/1000*Q10^((T2l-T1)/10)+ Pl/1000*Q10^((T2h-T1)/10))
-growth=  function(Q10, days, T2l=22, T2h=26, T1=22, Pd=12, Pl=24-Pd)  (Pd*Q10^((T2l-T1)/10)+ Pl*Q10^((T2h-T1)/10))*days
-
-#test
-days.hv.s=sapply(seq(0.6,3,0.1), FUN="days.dev", T2l=20, T2h=28, T1=24, Pd=12) 
-plot(seq(0.6,3,0.1), days.hv.s, type="l", col="red", ylim=c(38,43))
-days.lv.s=sapply(seq(0.6,3,0.1), FUN="days.dev", T2l=22,T2h=26, T1=24, Pd=12)
-points(seq(0.6,3,0.1), days.lv.s, type="l", col="blue")
-days.hv.l=sapply(seq(0.6,3,0.1), FUN="days.dev", T2l=20, T2h=28, T1=24, Pd=14) 
-points(seq(0.6,3,0.1), days.hv.l, type="l", col="red", lty=2)
-days.lv.l=sapply(seq(0.6,3,0.1), FUN="days.dev", T2l=22,T2h=26, T1=24, Pd=14)
-points(seq(0.6,3,0.1), days.lv.l, type="l", col="blue", lty=2)
-```
 
 General thoughts:
 We treat Q10 as if it could vary at different sites. Could R1 also (R at T=24) be different for different sites (through evolution)? 
@@ -165,7 +144,7 @@ days.dev=function(Q10, T2l=22, T2h=26, T1=24, Pd=12, Pl=24-Pd)  1/(Pd/1000*Q10^(
 
 So what are our data? age_adult 
 
-Could we deduce # of energy units to arrive at each instar (maybe from all the data) and then use time to each instar as data? Is this advisable?
+Could we deduce # of energy units to arrive at each instar (maybe from all the data) and then use time to each instar as data? Is this advisable? [Keep it at time to adult for now!]
 
 Also, do we have past data from which we can deduce R1 for each site? Maybe from when they were reared at constant temperatures?
 
@@ -180,79 +159,102 @@ dev.dat <- Instars_names %>% select(Site, Sex, Temperature, Photoperiod, Female2
 
 
 
+```{r}
+days.dev=function(Q10, R1, Tvar){ #fitting Q10 and R1
+  num_days <- 1/(12/1000*(Q10^((Tvar)/10)+ Q10^((-Tvar)/10)))
+  return(num_days)
+} 
+```
 
+Source: https://stats.stackexchange.com/questions/171154/fitting-known-equation-to-data/171191 
 ```{r}
 fs <- dev.dat %>% filter(Sex=="Female") %>% select(-Female2)
 
 
-dat <- fs %>% filter(Site=="3048m") %>% filter(!is.na(Age_Adult))
+dat3048 <- fs %>% filter(Site=="3048m") %>% filter(!is.na(Age_Adult))
+dat3048 <- dat3048 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
+fit3048 <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat3048, start=list(Q10=1.75))
+dat3048_c <- cbind(dat3048, fit3048$fitted) %>% rename(fit=`fit3048$fitted`)
 
-```
-
-
-Things that didn't work (commented out)
-```{r}
-dat2 <- dat %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) %>% mutate(Pd=ifelse(Photoperiod=="S", 12, 14))
-
-days.dev=function(Q10, R1, Tvar, Pd, Pl=24-Pd){ #fitting Q10 and R1
-  num_days <- 1/(Pd/1000*R1*Q10^((Tvar)/10)+Pl/1000*R1*Q10^((-Tvar)/10)) #tried taking out the ^, same error
-  return(num_days)
-} 
-
-days.dev=function(Q10, R1, Tvar, Pd, Pl=24-Pd) 1/(Pd/1000*R1*Q10^((Tvar)/10)+Pl/1000*R1*Q10^((-Tvar)/10)) 
-
-#fit <- nls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2, start=list(Q10=1.75, R1=1)) #error
-
-#library(nlmrt)
-#fit <- wrapnls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2, start=list(Q10=1.75, R1=1)) #error
-```
-
-Source: https://stats.stackexchange.com/questions/171154/fitting-known-equation-to-data/171191 
-
-FINALLY GOT IT TO WORK!
-```{r}
-library(nlme)
-fit <- gnls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2, start=list(Q10=1.75, R1=1)) #error
-fit
-```
-Is this Q10 (4.5) unrealistically high?
-
-For 3048m females
-```{r}
-dat3 <- cbind(dat2, fit$fitted)
-ggplot(data = dat3, aes(x =Temperature)) + facet_grid(.~ Photoperiod) + geom_point(aes(y = Age_Adult, color="Age_Adult"))+ geom_point(aes(y=fit$fitted, color="fit$fitted"))
-```
-
-```{r}
 dat2591 <- fs %>% filter(Site=="2591m") %>% filter(!is.na(Age_Adult))
-dat2591 <- dat2591 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) %>% mutate(Pd=ifelse(Photoperiod=="S", 12, 14))
-fit <- gnls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2591, start=list(Q10=1.75, R1=1)) #error
-fit
-```
-A very different Q10
+dat2591 <- dat2591 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
+fit2591 <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat2591, start=list(Q10=1.75)) 
+dat2591_c <- cbind(dat2591, fit2591$fitted) %>% rename(fit=`fit2591$fitted`)
 
-```{r}
-dat2591_c <- cbind(dat2591, fit$fitted)
-ggplot(data = dat2591_c, aes(x =Temperature)) + facet_grid(.~ Photoperiod) + geom_point(aes(y = Age_Adult, color="Age_Adult"))+ geom_point(aes(y=fit$fitted, color="fit$fitted"))
-```
-
-
-```{r}
 dat2195 <- fs %>% filter(Site=="2195m") %>% filter(!is.na(Age_Adult))
-dat2195 <- dat2195 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) %>% mutate(Pd=ifelse(Photoperiod=="S", 12, 14))
-fit <- gnls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2195, start=list(Q10=1.75, R1=1)) #error
-fit
+dat2195 <- dat2195 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
+fit2195 <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat2195, start=list(Q10=1.75)) 
+dat2195_c <- cbind(dat2195, fit2195$fitted) %>% rename(fit=`fit2195$fitted`)
 ```
-High Q10 again
 
-```{r}
-dat2195_c <- cbind(dat2195, fit$fitted)
-ggplot(data = dat2195_c, aes(x =Temperature)) + facet_grid(.~ Photoperiod) + geom_point(aes(y = Age_Adult, color="Age_Adult"))+ geom_point(aes(y=fit$fitted, color="fit$fitted"))
-```
 Trying to plot them together
 ```{r}
-all_f <- rbind(dat3,dat2591_c,dat2195_c) %>% rename(fit=`fit$fitted`)
+all_f <- rbind(dat3048_c,dat2591_c,dat2195_c)
 
-ggplot(data = all_f, aes(x =Temperature)) + facet_grid(Site ~ Photoperiod) + geom_point(aes(y = Age_Adult, color="Age_Adult")) + geom_point(aes(y=fit, color="fit"))
+ggplot(data = all_f, aes(x =Temperature)) + facet_grid(.~Site) + geom_point(aes(y = Age_Adult, color="Age_Adult")) + geom_point(aes(y=fit, color="black"))
+```
+```{r}
+days.hv=sapply(seq(0.6,5,0.1), FUN="days.dev", Tvar=4) 
+plot(seq(0.6,5,0.1), days.hv, type="l", col="red", xlab="Q10", ylab="Predicted days to adult")
+
+
+days.lv=sapply(seq(0.6,5,0.1), FUN="days.dev", Tvar=2)
+points(seq(0.6,5,0.1), days.lv, type="l", col="blue")
+
+abline(v=as.numeric(fit2195$coefficients)) #2195
+text(as.numeric(fit2195$coefficients)-.25, 34.5, "2195m")
+abline(v=as.numeric(fit2591$coefficients)) #2951
+text(as.numeric(fit2591$coefficients)-.25, 34.5, "2951m")
+abline(v=as.numeric(fit3048$coefficients)) #3048
+text(as.numeric(fit3048$coefficients)-.25, 34.5, "3048m")
+
+#could put color coded data points here if it would be helpful
+
+```
+
+## Now males
+
+```{r}
+ms <- dev.dat %>% filter(Sex=="Male") %>% select(-Female2)
+
+dat3048 <- ms %>% filter(Site=="3048m") %>% filter(!is.na(Age_Adult))
+dat3048 <- dat3048 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
+fit3048 <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat3048, start=list(Q10=1.75))
+dat3048_c <- cbind(dat3048, fit3048$fitted) %>% rename(fit=`fit3048$fitted`)
+
+dat2591 <- ms %>% filter(Site=="2591m") %>% filter(!is.na(Age_Adult))
+dat2591 <- dat2591 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
+fit2591 <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat2591, start=list(Q10=1.75)) 
+dat2591_c <- cbind(dat2591, fit2591$fitted) %>% rename(fit=`fit2591$fitted`)
+
+dat2195 <- ms %>% filter(Site=="2195m") %>% filter(!is.na(Age_Adult))
+dat2195 <- dat2195 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
+fit2195 <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat2195, start=list(Q10=1.75)) 
+dat2195_c <- cbind(dat2195, fit2195$fitted) %>% rename(fit=`fit2195$fitted`)
+```
+
+Trying to plot them together
+```{r}
+all_m <- rbind(dat3048_c,dat2591_c,dat2195_c)
+
+ggplot(data = all_m, aes(x =Temperature)) + facet_grid(.~Site) + geom_point(aes(y = Age_Adult, color="Age_Adult")) + geom_point(aes(y=fit, color="black"))
+```
+
+```{r}
+days.hv=sapply(seq(0.6,5,0.1), FUN="days.dev", Tvar=4) 
+plot(seq(0.6,5,0.1), days.hv, type="l", col="red", xlab="Q10", ylab="Predicted days to adult")
+
+
+days.lv=sapply(seq(0.6,5.2,0.1), FUN="days.dev", Tvar=2)
+points(seq(0.6,5.2,0.1), days.lv, type="l", col="blue")
+
+abline(v=as.numeric(fit2195$coefficients)) #2195
+text(as.numeric(fit2195$coefficients)-.25, 34.5, "2195m")
+abline(v=as.numeric(fit2591$coefficients)) #2951
+text(as.numeric(fit2591$coefficients)+.25, 34.5, "2951m")
+abline(v=as.numeric(fit3048$coefficients)) #3048
+text(as.numeric(fit3048$coefficients)-.25, 34.5, "3048m")
+
+#could put color coded data points here if it would be helpful
 ```
 
