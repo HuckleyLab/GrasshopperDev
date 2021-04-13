@@ -191,7 +191,7 @@ Trying to plot them together
 ```{r}
 all_f <- rbind(dat3048_c,dat2591_c,dat2195_c)
 
-ggplot(data = all_f, aes(x =Temperature)) + facet_grid(.~Site) + geom_point(aes(y = Age_Adult, color="Age_Adult")) + geom_point(aes(y=fit, color="black"))
+ggplot(data = all_f, aes(x =Temperature)) + facet_grid(.~Site) + geom_point(aes(y = Age_Adult, color="Age_Adult")) + geom_point(aes(y=fit, color="fit"))
 ```
 ```{r}
 days.hv=sapply(seq(0.6,5,0.1), FUN="days.dev", Tvar=4) 
@@ -237,7 +237,7 @@ Trying to plot them together
 ```{r}
 all_m <- rbind(dat3048_c,dat2591_c,dat2195_c)
 
-ggplot(data = all_m, aes(x =Temperature)) + facet_grid(.~Site) + geom_point(aes(y = Age_Adult, color="Age_Adult")) + geom_point(aes(y=fit, color="black"))
+ggplot(data = all_m, aes(x =Temperature)) + facet_grid(.~Site) + geom_point(aes(y = Age_Adult, color="Age_Adult")) + geom_point(aes(y=fit, color="fit"))
 ```
 
 ```{r}
