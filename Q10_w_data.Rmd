@@ -1,0 +1,258 @@
+---
+title: "Q10_w_data"
+output: html_notebook
+---
+
+#Set up
+
+Set working directory to source file location
+```{r setup}
+knitr::opts_knit$set(root.dir = './')
+```
+
+Load packages and functions
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+# Initial
+rm(list=ls(all = TRUE))
+library(stringr)
+library(foreach)
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(plotrix)
+library(nlme)
+library(lme4)
+library(car)
+library(AICcmodavg)
+library(lsmeans)
+library(reshape2)
+library(MASS)
+library(nls2)
+library(tidyverse)
+library(kableExtra)
+library(faraway)
+library(sjPlot) #for plot_new
+library(tidyverse)
+library(knitr)
+library(afex)
+library(RColorBrewer)
+library(ggeffects)
+library(cowplot)
+library(stringr)
+
+#webshot::install_phantomjs()
+library(kableExtra)
+
+source('Functions.R')
+
+```
+
+Functions and labels
+```{r}
+
+
+# New facet label names for supp variable
+Photoperiod.labs <- c("Long photoperiod", "Short photoperiod")
+names(Photoperiod.labs) <- c("L", "S")
+ 
+#Temperature.labs <- c("High var", "Low var")
+#names(Temperature.labs) <- c("HV", "LV")
+##decided to stick with HV and LB
+
+#plot based on individual means
+MinSE <- function(x) {mean(x, na.rm = TRUE) - std.error(x, na.rm = TRUE)}
+MaxSE <- function(x) {mean(x, na.rm = TRUE) + std.error(x, na.rm = TRUE)}
+
+Give.N <- function(x){
+  return(c(y = MaxSE(x)*1.01, label = length(x))) 
+}
+```
+
+Growth and development data
+```{r}
+# Instars from GrowthRate_Script_2016.R
+Instars <- read.csv(file = "data/GrasshopperData_3rdToAdult_SPR16.csv", header = TRUE, stringsAsFactors = FALSE)
+#str(Instars)
+Instars$sex <- ifelse(Instars$sex == "", NA, Instars$sex)
+
+#Format dates and calculate ages
+Instars$Date1_Hatch <- as.Date(Instars$Date_Hatch, format = "%m/%d/%Y")
+Instars$Date1_1st <- as.Date(Instars$Date_1st, format = "%m/%d/%Y")
+Instars$Date1_2nd <- as.Date(Instars$Date_2nd, format = "%m/%d/%Y")
+Instars$Date1_3rd <- as.Date(Instars$Date_3rd, format = "%m/%d/%Y")
+Instars$Date1_4th <- as.Date(Instars$Date_4th, format = "%m/%d/%Y")
+Instars$Date1_5th <- as.Date(Instars$Date_5th, format = "%m/%d/%Y")
+Instars$Date1_5th. <- as.Date(Instars$Date_5th., format = "%m/%d/%Y")
+Instars$Date1_Adult <- as.Date(Instars$Date_Adult, format = "%m/%d/%Y")
+Instars$Date1_Death <- as.Date(Instars$Date_Death, format = "%m/%d/%Y")
+
+Instars$Age_3rd <- Instars$Date1_3rd - Instars$Date1_Hatch
+Instars$Age_4th <- Instars$Date1_4th - Instars$Date1_Hatch
+Instars$Age_5th <- Instars$Date1_5th - Instars$Date1_Hatch
+Instars$Age_Adult <- Instars$Date1_Adult - Instars$Date1_Hatch
+
+#trim out pell data
+Instars <- Instars[Instars$Species == "dodg",]
+
+#set factors
+Instars$Site <- as.factor(Instars$Site)
+Instars$sex <- as.factor(Instars$sex)
+Instars$Temp <- as.factor(Instars$Temp)
+Instars$Light <- as.factor(Instars$Light)
+Instars$Female <- as.factor(Instars$Female)
+Instars$Female2 <- as.factor(paste(Instars$Female, Instars$Site, sep = "_")) 
+  #Female2 gives each mother her own ID (differentiates between FY1's across sites)
+Instars= Instars[which(Instars$sex %in% c("F","M")),] #ADDING THIS HERE -- I think we do this in effect anyway
+
+Instars_names <- Instars %>% rename(Sex=sex, Temperature=Temp, Photoperiod=Light)
+Instars_names$Site <- recode(Instars_names$Site, A1 = "2195m", B1="2591m", C1="3048m")
+Instars_names$Sex <- recode(Instars_names$Sex, M = "Male", F="Female")
+
+#For devinstelopment by instar
+D_Instars_Adult <- Instars_names[is.na(Instars_names$Age_Adult) == FALSE,]
+D_Instars_Adult_Long <- melt(D_Instars_Adult[,c(1:8,50:54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "Sex", "Temperature", "Photoperiod")) 
+#Make instar numeric
+D_Instars_Adult_Long$Instar=3
+D_Instars_Adult_Long$Instar[D_Instars_Adult_Long$variable=="Age_4th"]=4
+D_Instars_Adult_Long$Instar[D_Instars_Adult_Long$variable=="Age_5th"]=5
+D_Instars_Adult_Long$Instar[D_Instars_Adult_Long$variable=="Age_Adult"]=6
+
+#For mass by instar
+M_Instars_Adult <- Instars_names[is.na(Instars_names$Mass_Adult) == FALSE,]
+M_Instars_Adult_Long <-  melt(M_Instars_Adult[,c(1:8,18,21,24,30,54)], id.vars = c("Individual", "CCode", "Female", "Female2", "Site", "Species", "Sex", "Temperature", "Photoperiod")) #tracks the mass (value) when each individual reached each instar (variable)
+#Make instar numeric
+M_Instars_Adult_Long$Instar=3
+M_Instars_Adult_Long$Instar[M_Instars_Adult_Long$variable=="Mass_4th"]=4
+M_Instars_Adult_Long$Instar[M_Instars_Adult_Long$variable=="Mass_5th"]=5
+M_Instars_Adult_Long$Instar[M_Instars_Adult_Long$variable=="Mass_Adult"]=6
+
+
+
+```
+
+Q10-related functions
+```{r}
+#test out Q10 equation
+#Q10=(R2/R1)^(10/(T2-T1))
+R2= function(T2, R1=1, Q10=1, T1=1) R1 *Q10^((T2-T1)/10)
+
+#functions for days development and growth
+#assumes R1=1 and arbitrarily requires 1000 units of development
+#use photoperiod to determine hours of each temperature (T2l and T2h)
+days.dev=function(Q10, T2l=22, T2h=26, T1=22, Pd=12, Pl=24-Pd)  1/(Pd/1000*Q10^((T2l-T1)/10)+ Pl/1000*Q10^((T2h-T1)/10))
+growth=  function(Q10, days, T2l=22, T2h=26, T1=22, Pd=12, Pl=24-Pd)  (Pd*Q10^((T2l-T1)/10)+ Pl*Q10^((T2h-T1)/10))*days
+
+#test
+days.hv.s=sapply(seq(0.6,3,0.1), FUN="days.dev", T2l=20, T2h=28, T1=24, Pd=12) 
+plot(seq(0.6,3,0.1), days.hv.s, type="l", col="red", ylim=c(38,43))
+days.lv.s=sapply(seq(0.6,3,0.1), FUN="days.dev", T2l=22,T2h=26, T1=24, Pd=12)
+points(seq(0.6,3,0.1), days.lv.s, type="l", col="blue")
+days.hv.l=sapply(seq(0.6,3,0.1), FUN="days.dev", T2l=20, T2h=28, T1=24, Pd=14) 
+points(seq(0.6,3,0.1), days.hv.l, type="l", col="red", lty=2)
+days.lv.l=sapply(seq(0.6,3,0.1), FUN="days.dev", T2l=22,T2h=26, T1=24, Pd=14)
+points(seq(0.6,3,0.1), days.lv.l, type="l", col="blue", lty=2)
+```
+
+General thoughts:
+We treat Q10 as if it could vary at different sites. Could R1 also (R at T=24) be different for different sites (through evolution)? 
+
+And how does sex factor in? Do we have a different number of energetic units that needs to be reached? Different R1 and/or Q10? We could just choose a sex and ignore this Q.
+
+Fitting curves:
+Our parameters are R1[site], Q10[site]... should there be some constant somewhere in here (maybe the 1000)?
+
+days.dev=function(Q10, T2l=22, T2h=26, T1=24, Pd=12, Pl=24-Pd)  1/(Pd/1000*Q10^((T2l-T1)/10)+ Pl/1000*Q10^((T2h-T1)/10))
+
+So what are our data? age_adult 
+
+Could we deduce # of energy units to arrive at each instar (maybe from all the data) and then use time to each instar as data? Is this advisable?
+
+Also, do we have past data from which we can deduce R1 for each site? Maybe from when they were reared at constant temperatures?
+
+So far I haven't gotten into growth -- just development. Are we assuming something about the relationship between G & D right now? Does the function you provided in Q10 account for growth leveling off? Is "days" the number of days it takes to reach adulthood (and then the output is adult mass) Or is it supposed to predict mass for any number of days?
+
+Possibly useful source... could incorporate random effects (Female2), but not sure how much it matters
+https://stackoverflow.com/questions/55778838/how-to-fit-a-nls-model-with-mixed-effects
+
+```{r}
+dev.dat <- Instars_names %>% select(Site, Sex, Temperature, Photoperiod, Female2, Age_Adult)
+```
+
+
+
+
+```{r}
+fs <- dev.dat %>% filter(Sex=="Female") %>% select(-Female2)
+
+
+dat <- fs %>% filter(Site=="3048m") %>% filter(!is.na(Age_Adult))
+
+```
+
+
+Things that didn't work (commented out)
+```{r}
+dat2 <- dat %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) %>% mutate(Pd=ifelse(Photoperiod=="S", 12, 14))
+
+days.dev=function(Q10, R1, Tvar, Pd, Pl=24-Pd){ #fitting Q10 and R1
+  num_days <- 1/(Pd/1000*R1*Q10^((Tvar)/10)+Pl/1000*R1*Q10^((-Tvar)/10)) #tried taking out the ^, same error
+  return(num_days)
+} 
+
+days.dev=function(Q10, R1, Tvar, Pd, Pl=24-Pd) 1/(Pd/1000*R1*Q10^((Tvar)/10)+Pl/1000*R1*Q10^((-Tvar)/10)) 
+
+#fit <- nls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2, start=list(Q10=1.75, R1=1)) #error
+
+#library(nlmrt)
+#fit <- wrapnls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2, start=list(Q10=1.75, R1=1)) #error
+```
+
+Source: https://stats.stackexchange.com/questions/171154/fitting-known-equation-to-data/171191 
+
+FINALLY GOT IT TO WORK!
+```{r}
+library(nlme)
+fit <- gnls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2, start=list(Q10=1.75, R1=1)) #error
+fit
+```
+Is this Q10 (4.5) unrealistically high?
+
+For 3048m females
+```{r}
+dat3 <- cbind(dat2, fit$fitted)
+ggplot(data = dat3, aes(x =Temperature)) + facet_grid(.~ Photoperiod) + geom_point(aes(y = Age_Adult, color="Age_Adult"))+ geom_point(aes(y=fit$fitted, color="fit$fitted"))
+```
+
+```{r}
+dat2591 <- fs %>% filter(Site=="2591m") %>% filter(!is.na(Age_Adult))
+dat2591 <- dat2591 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) %>% mutate(Pd=ifelse(Photoperiod=="S", 12, 14))
+fit <- gnls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2591, start=list(Q10=1.75, R1=1)) #error
+fit
+```
+A very different Q10
+
+```{r}
+dat2591_c <- cbind(dat2591, fit$fitted)
+ggplot(data = dat2591_c, aes(x =Temperature)) + facet_grid(.~ Photoperiod) + geom_point(aes(y = Age_Adult, color="Age_Adult"))+ geom_point(aes(y=fit$fitted, color="fit$fitted"))
+```
+
+
+```{r}
+dat2195 <- fs %>% filter(Site=="2195m") %>% filter(!is.na(Age_Adult))
+dat2195 <- dat2195 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) %>% mutate(Pd=ifelse(Photoperiod=="S", 12, 14))
+fit <- gnls(Age_Adult ~ days.dev(Q10, R1, Tvar, Pd), data=dat2195, start=list(Q10=1.75, R1=1)) #error
+fit
+```
+High Q10 again
+
+```{r}
+dat2195_c <- cbind(dat2195, fit$fitted)
+ggplot(data = dat2195_c, aes(x =Temperature)) + facet_grid(.~ Photoperiod) + geom_point(aes(y = Age_Adult, color="Age_Adult"))+ geom_point(aes(y=fit$fitted, color="fit$fitted"))
+```
+Trying to plot them together
+```{r}
+all_f <- rbind(dat3,dat2591_c,dat2195_c) %>% rename(fit=`fit$fitted`)
+
+ggplot(data = all_f, aes(x =Temperature)) + facet_grid(Site ~ Photoperiod) + geom_point(aes(y = Age_Adult, color="Age_Adult")) + geom_point(aes(y=fit, color="fit"))
+```
+
