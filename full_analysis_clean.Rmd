@@ -371,8 +371,17 @@ ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp, linetype=sex))
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
   ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
 ```
+```{r}
+#TRY THIS PLOT TO HIGLIGHT VAR< DAYLENGTH
+ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp, linetype=Light)) +
+#  rory_theme +
+  facet_grid(cols=vars(sex), labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
 
-
+```
 
 
 
@@ -548,6 +557,18 @@ ggplot(data = Instars_names, aes(x = Site, y = as.numeric(Mass_Adult), color = T
   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
   ylab("Mass as adult (g)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
 ```
+
+```{r}
+ggplot(data = Instars_names, aes(x = Site, y = as.numeric(Mass_Adult), color = Temperature, lty=Photoperiod)) +
+#  rory_theme +
+  facet_grid(.~Sex, labeller=labeller(Sex = sex.labs, Photoperiod = Light.labs)) +
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+  ylab("Mass as adult (g)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
+```
+
 
 ```{r}
 Instars_names_devmass <- Instars_names %>% 
@@ -2246,3 +2267,12 @@ plot_model(LmerF3.4, type= "pred", terms = c("TestTemp","Temperature"), show.dat
 plot_model(LmerF3.4, type= "pred", terms = c("Temperature", "Site"), show.data=FALSE)
 ```
 
+```{r}
+#check plot
+
+nLmer0 <- lmer(as.numeric(Age_Adult) ~ sex * Site * Temp * Light + 
+                 (1|Female2), na.action = 'na.omit', REML=FALSE, data = Instars)
+
+plot_model(nLmer0, type= "pred", terms = c("Site","Temp","Light","sex"), show.data=FALSE, show.loess=TRUE)
+
+```

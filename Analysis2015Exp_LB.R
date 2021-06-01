@@ -130,3 +130,34 @@ Anova(M_MAX1, type = 3)
 
 M_MIN1 <- lm(CTmin ~ Site + Temp + Light, data = ThermDodg) #Nothing significant
 Anova(M_MIN1, type = 3)
+
+#---------------------------------
+#Development analysis
+#The data for each population includes two parameters that characterize the reaction norm for development rate R across the life cycle: the developmental zero temperature (T0) below which R = 0; and the accumulated degree-days (G) above T0 needed to complete development from egg to adulthood. Development rate (R) can be approximated as a linear function of temperature (T) below optimal temperatures (R = aT + b). The regression enables calculating the lower temperature threshold for development, T0 = −b/a, and the degree day accumulation required for development, G = 1/a (Trudgill 1995; Honek 1996). 
+
+ggplot(data = clean, aes(x = Site, y = Age_Adult, color = temp)) +
+  facet_grid(Species~light) + geom_point()+
+  stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = 1.5, position = position_dodge(width = .6)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = 1.5, position = position_dodge(width = .6)) +
+  ylab("Time to adult (d)") + xlab("Site")+scale_color_viridis_d()
+
+#-----
+d.dat= clean[which(clean$Species=="dodg"),c("temp","Age_Adult","Site","light")]
+d.dat$site.l= paste(d.dat$Site, d.dat$light, sep="_")
+d.dat= na.omit(d.dat)
+
+ggplot(data = d.dat, aes(x = temp, y = 1/Age_Adult, color = Site, lty=light, group=site.l)) +
+  geom_point()+geom_line()
+
+mod1= lm(1/Age_Adult~temp+Site+light, dat= d.dat) 
+a= coefficients(mod1)[2]
+b= coefficients(mod1)[1]
+To= -b/a
+G=1/a
+
+
+
+
+
+
+
