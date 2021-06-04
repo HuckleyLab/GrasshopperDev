@@ -24,6 +24,7 @@ fdir= "/Volumes/GoogleDrive/My\ Drive/AlexanderResurvey/DataForAnalysis/"
 #load climate data
 setwd( paste(fdir, "climate", sep="") )   
 clim= read.csv("AlexanderClimateAll_filled_May2018.csv")
+#clim2= read.csv("AlexanderClimateAll_filled_Oct2019.csv")
 
 #---------------------
 #cummulative degree days
@@ -32,8 +33,8 @@ clim = clim %>% group_by(Year,Site) %>% arrange(Julian) %>% mutate(cdd_sum = cum
 # cdd_june = cumsum(dd_june),cdd_july = cumsum(dd_july),cdd_aug = cumsum(dd_aug),cdd_early = cumsum(dd_early),cdd_mid = cumsum(dd_mid),cdd_ac = cumsum(dd_ac),cdd_mb = cumsum(dd_mb),cdd_ms = cumsum(dd_ms)
 
 #load hopper data
-#setwd( paste(fdir, "grasshoppers/SexCombined/", sep="") )
-#hop= read.csv("HopperData_May2018.csv")
+setwd( paste(fdir, "grasshoppers/SexCombined/", sep="") )
+hop= read.csv("HopperData_May2018.csv")
 
 #======================================================
 #CALCULATE GDD METRICS
@@ -60,7 +61,8 @@ clim1= ddply(clim1, c("Site", "Year"), summarise,
 hop1= hop[which(hop$in6>0),]
 
 #subset to focal species
-specs= c("Aeropedellus clavatus","Chloealtis abdominalis","Camnula pellucida","Melanoplus dawsoni","Melanoplus boulderensis","Melanoplus sanguinipes")
+#specs= c("Aeropedellus clavatus","Chloealtis abdominalis","Camnula pellucida","Melanoplus dawsoni","Melanoplus boulderensis","Melanoplus sanguinipes")
+specs= c("Melanoplus boulderensis")
 
 hop1= hop1[which(hop1$species %in% specs ),]
 
@@ -136,7 +138,7 @@ clim1$Cdd_july_siteave= clim.ave$Cdd_july[match(clim1$Year, clim.ave$Year)]
 #------------------------------------------------
 #CALCULATE DEVELOMENT INDEX
 
-dat=hop[,c("ordinal","species","in6","in5","in4","in3","in2","in1","total","year","site","period","sjy","dd","dd_sum","cdd_sum","cdd_sumfall")]
+dat=hop4[,c("ordinal","species","in6","in5","in4","in3","in2","in1","total","year","site","period","sjy","dd","dd_sum","cdd_sum","cdd_sumfall")]
 
 #replace instar NAs with zero
 dat[which(is.na(dat$in1)), "in1"]=0 
@@ -152,12 +154,6 @@ inds=which(dat$total>0)
 dat$DI[inds]= (dat$in1[inds] +dat$in2[inds]*2 +dat$in3[inds]*3 +dat$in4[inds]*4 +dat$in5[inds]*5 +dat$in6[inds]*6)/dat$total[inds]
 
 #----------
-# specs= c("Aeropedellus clavatus", "Camnula pellucida", "Melanoplus dawsoni", "Melanoplus sanguinipes", "Melanoplus boulderensis")
-# #reduce to focal species
-dat= dat[dat$species %in% specs,] #[3:6]
-#order
-dat$species= ordered(dat$species, levels=c("Aeropedellus clavatus","Melanoplus boulderensis","Chloealtis abdominalis", "Camnula pellucida","Melanoplus sanguinipes","Melanoplus dawsoni") )
-
 #code period
 dat$per=1
 dat$per[dat$year>2000]=2
@@ -193,20 +189,13 @@ dat$year= as.factor(dat$year)
 drop= which(dat$total<3) # & dat$DI!=1 & dat$DI!=6
 if(length(drop)>0) dat=dat[-drop,]
 
-#order varaibles
+#order variables
 #period
 dat$period= factor(dat$period, levels=c("resurvey", "initial") )
 #elevation
 dat$elev= factor(dat$elev, levels=c(3048,2591,2195,1752) )
 #species
 dat$species= factor(dat$species) #, levels=c("Aeropedellus clavatus","Melanoplus boulderensis","Chloealtis abdominalis", "Camnula pellucida", "Melanoplus sanguinipes", "Melanoplus dawsoni") )
-
-#add wind length
-dat$species.lab= paste(dat$species,"(SW)", sep=" ")
-#fix long wing
-dat$species.lab= replace(dat$species.lab, which(dat$species.lab=="Camnula pellucida (SW)"), "Camnula pellucida (LW)")
-dat$species.lab= replace(dat$species.lab, which(dat$species.lab=="Melanoplus sanguinipes (SW)"), "Melanoplus sanguinipes (LW)")
-dat$species.lab= factor(dat$species.lab, levels=c("Aeropedellus clavatus (SW)","Melanoplus boulderensis (SW)","Chloealtis abdominalis (SW)", "Camnula pellucida (LW)", "Melanoplus sanguinipes (LW)", "Melanoplus dawsoni (SW)") )
 
 #------------------------------------------------
 #ESTIMATE ADULTHOOD BASED ON DI
@@ -258,31 +247,33 @@ dat$gdd_adult= dout[match(dat$spsiteyear, dout$spsiteyear),"gdd_adult"]
 #====================================
 ## FIGURE
 
+#read processed data
+setwd("/Volumes/GoogleDrive/Shared drives/TrEnCh/Projects/GrasshopperDev2015/data/")
+write.csv(dat.mb, "MB_phen_clim.csv")
+
 #DEVELOPMENTAL INDEX
 #Plot DI by ordinal date
-
-dat.mb= subset(dat, dat$species=="Melanoplus boulderensis")
 
 #update elevation labels
 dat$elev.lab= paste(dat$elev,"m",sep="")
 dat$elev.lab= factor(dat$elev.lab, levels=c("3048m","2591m","2195m","1752m") )
 
-di.plot= ggplot(data=dat.mb, aes(x=ordinal, y = DI, color=Cdd_siteave, group=siteyear, linetype=period))+facet_grid(elev.lab~.) +
+di.plot= ggplot(data=dat, aes(x=ordinal, y = DI, color=Cdd_siteave, group=siteyear, linetype=period))+facet_grid(elev.lab~.) +
   theme_bw()+xlim(120,200)+
   geom_point()+geom_line(aes(alpha=0.5))+ #+geom_smooth(se=FALSE, aes(alpha=0.5), span=2)+
   scale_colour_gradientn(colours =matlab.like(10))+ylab("development index")+xlab("day of year")+labs(color="mean season gdds")+
   theme(legend.position = "bottom") + guides(alpha=FALSE)
 
 #Plot DI by GDD
-di.plot.gdd= ggplot(data=dat.mb, aes(x=cdd_sum, y = DI, color=Cdd_siteave, group=siteyear, linetype=period))+facet_grid(elev.lab~.) +
+di.plot.gdd= ggplot(data=dat, aes(x=cdd_sum, y = DI, color=Cdd_siteave, group=siteyear, linetype=period))+facet_grid(elev.lab~.) +
   theme_bw()+xlim(0,200)+
   geom_point()+geom_line(aes(alpha=0.5))+ #+geom_smooth(se=FALSE, aes(alpha=0.5),span=2)+
   scale_colour_gradientn(colours =matlab.like(10))+ylab("development index")+xlab("cummulative growing degree days")+labs(color="mean season gdds")+
   theme(legend.position = "bottom") + guides(alpha=FALSE)
 
 #stats
-mod1= lm(DI~ordinal*Cdd_siteave*elev.lab , data=dat.mb)
-mod1= lm(DI~cdd_sum*Cdd_siteave*elev.lab , data=dat.mb)
+mod1= lm(DI~ordinal*Cdd_siteave*elev.lab , data=dat)
+mod1= lm(DI~cdd_sum*Cdd_siteave*elev.lab , data=dat)
 #----
 #FIG?
 di.plot +di.plot.gdd
@@ -301,11 +292,9 @@ dat.ssy$elevspec= paste(dat.ssy$elev, dat.ssy$species, sep="")
 elevspec= matrix(unique(dat.ssy$elevspec))
 
 #------
-#restrict to boulderensis
-dat.mb= subset(dat.ssy, dat.ssy$species=="Melanoplus boulderensis")
 
 #DOY
-plot.phen.doye=ggplot(data=dat.mb, aes(x=Cdd_siteave, y = doy_adult, color=elev.lab))+
+plot.phen.doye=ggplot(data=dat.ssy, aes(x=Cdd_siteave, y = doy_adult, color=elev.lab))+
   geom_point(aes(shape=period, alpha=period, stroke=1), size=3)+
   geom_point(aes(shape=period, stroke=1), size=3)+
   geom_smooth(method="lm",se=F)+
@@ -315,7 +304,7 @@ plot.phen.doye=ggplot(data=dat.mb, aes(x=Cdd_siteave, y = doy_adult, color=elev.
 #GDD metrics: Cdd_siteave cdd_seas
 
 #GDD
-plot.phen.gdde=ggplot(data=dat.mb, aes(x=Cdd_siteave, y = gdd_adult, color=elev.lab))+
+plot.phen.gdde=ggplot(data=dat.ssy, aes(x=Cdd_siteave, y = gdd_adult, color=elev.lab))+
   geom_point(aes(shape=period, alpha=period, stroke=1), size=3)+
   geom_point(aes(shape=period, stroke=1), size=3)+
   geom_smooth(method="lm",se=F)+
