@@ -6,6 +6,8 @@ library(plyr)
 library(dplyr)
 library(colorRamps)
 library(patchwork)
+library(viridis)
+library(tidyverse)
 
 sites= c("CHA", "A1", "B1", "C1", "D1")  #Redfox: 1574
 elevs= c(1752, 2195, 2591, 3048, 3739)
@@ -23,14 +25,28 @@ fdir= "/Volumes/GoogleDrive/My\ Drive/AlexanderResurvey/DataForAnalysis/"
 
 #load climate data
 setwd( paste(fdir, "climate", sep="") )   
-clim= read.csv("AlexanderClimateAll_filled_May2018.csv")
-#clim2= read.csv("AlexanderClimateAll_filled_Oct2019.csv")
+#clim= read.csv("AlexanderClimateAll_filled_May2018.csv")
+clim2= read.csv("AlexanderClimateAll_filled_Oct2019.csv")
+
+#drop NOAA
+clim2= clim2[-which(clim2$Site=="NOAA"),]
+
+#----
+
+#calculate degree days
+inds= which(!is.na(clim2$Min) & !is.na(clim2$Max))
+clim2$dd=NA
+clim2$dd[inds]= mapply(degree_days, T_min=clim2$Min[inds], T_max=clim2$Max[inds], LDT=0, UDT=100, method="single.sine")
+
+#cummulative dd by year, starting March 1
+clim2= clim2%>%
+  group_by(Year)%>% arrange(Ordinal) %>%
+  dplyr::mutate(cumsum=cumsum(replace_na(dd, 0)))
 
 #---------------------
 #cummulative degree days
 #cumsum within groups
-clim = clim %>% group_by(Year,Site) %>% arrange(Julian) %>% mutate(cdd_sum = cumsum(dd_sum), cdd_sumfall = cumsum(dd_sumfall), cdd_july = cumsum(dd_july)) 
-# cdd_june = cumsum(dd_june),cdd_july = cumsum(dd_july),cdd_aug = cumsum(dd_aug),cdd_early = cumsum(dd_early),cdd_mid = cumsum(dd_mid),cdd_ac = cumsum(dd_ac),cdd_mb = cumsum(dd_mb),cdd_ms = cumsum(dd_ms)
+clim1 = clim2 %>% group_by(Year,Site) %>% arrange(Ordinal) %>% dplyr::mutate(cdd_sum = cumsum(replace_na(dd, 0)) ) 
 
 #load hopper data
 setwd( paste(fdir, "grasshoppers/SexCombined/", sep="") )
@@ -40,18 +56,16 @@ hop= read.csv("HopperData_May2018.csv")
 #CALCULATE GDD METRICS
 
 #subset years to survey
-clim1= clim[which(clim$Year %in% c(1958, 1959, 1960, 2006:2015))  ,]
+clim1= clim1[which(clim1$Year %in% c(1958, 1959, 1960, 2006:2015))  ,]
 
 #set temp outside summer to NA
 clim1$Mean= (clim1$Min + clim1$Max)/2
 clim1$Mean_summer= clim1$Mean
-clim1[clim1$Julian<60 | clim1$Julian>243,"Mean_summer"]=NA
-
-cdat=clim1
+clim1[clim1$Ordinal<60 | clim1$Ordinal>243,"Mean_summer"]=NA
 
 #metrics across years
 clim1= ddply(clim1, c("Site", "Year"), summarise,
-             Mean = mean(Mean_summer, na.rm=TRUE), Cdd_seas = max(cdd_sum, na.rm=FALSE), Cdd_seasfall = max(cdd_sumfall, na.rm=FALSE), Cdd_july = max(cdd_july, na.rm=TRUE) )
+             Mean = mean(Mean_summer, na.rm=TRUE), Cdd_seas = max(cdd_sum, na.rm=FALSE) )
 #    Mean = mean(Mean_summer, na.rm=TRUE), Sd = sd(Mean_summer, na.rm=TRUE),Cdd_seas = max(cdd_sum, na.rm=TRUE),Cdd_june = max(cdd_june, na.rm=TRUE),Cdd_july = max(cdd_july, na.rm=TRUE),Cdd_aug = max(cdd_aug, na.rm=TRUE),Cdd_early = max(cdd_early, na.rm=TRUE),Cdd_mid = max(cdd_mid, na.rm=TRUE),Cdd_ac = max(cdd_ac, na.rm=TRUE),Cdd_mb = max(cdd_mb, na.rm=TRUE),Cdd_ms = max(cdd_ms, na.rm=TRUE), Sem = sd(Mean_summer, na.rm=TRUE)/sqrt(length(na.omit(Mean_summer))))
 
 #---------
@@ -67,36 +81,7 @@ specs= c("Melanoplus boulderensis")
 hop1= hop1[which(hop1$species %in% specs ),]
 
 #trim columns
-hop1= hop1[,c("ordinal","species","in6","in5","in4","in3","in2","in1","total","site","period","year","sjy","cdd_sum")]
-
-#-------------
-## calculate median across individuals
-hop1= hop1[order(hop1$ordinal),]
-#cumulative sum of individuals within groups
-hop1 = hop1 %>% group_by(species,site,year) %>% arrange(species,site,year,ordinal) %>% mutate(csind = cumsum(in6))
-#number of median individual
-hop3 = hop1 %>% group_by(species,site,year) %>% arrange(species,site,year,ordinal) %>% mutate(medind = max(csind)/2, qlowind=max(csind)*0.15, qupind=max(csind)*0.85)
-
-#date of median individual
-hop3$inddif= abs(hop3$medind-hop3$csind) #difference from median individual
-hop3$inddif.qlow= abs(hop3$qlowind-hop3$csind) #difference from q20 individual
-hop3$inddif.qup= abs(hop3$qupind-hop3$csind) #difference from q80 individual
-
-hop4= do.call(rbind,lapply(split(hop3,list(hop3$species, hop3$site, hop3$year)),function(chunk) chunk[which.min(chunk$inddif),]))
-hop4.qlow= do.call(rbind,lapply(split(hop3,list(hop3$species, hop3$site, hop3$year)),function(chunk) chunk[which.min(chunk$inddif.qlow),]))
-hop4.qup= do.call(rbind,lapply(split(hop3,list(hop3$species, hop3$site, hop3$year)),function(chunk) chunk[which.min(chunk$inddif.qup),]))
-
-#plot low and high percentiles
-#combine
-hop4$quantile=50
-hop4.qup$quantile=85
-hop4.qlow$quantile=15
-hop5= rbind(hop4,hop4.qup, hop4.qlow)
-hop5$quantile= as.factor(hop5$quantile)
-hop5$yr_q= paste(hop5$year, hop5$quantile, sep="_")
-hop5$year= as.factor(hop5$year)
-
-hop4=hop5 #add quantiles 
+hop4= hop1[,c("ordinal","species","in6","in5","in4","in3","in2","in1","total","site","period","year","sjy","cdd_sum")]
 
 #-----------------
 # match phenology to temp and dd
@@ -179,9 +164,6 @@ dat$cdd_seas[matched]<- clim1$Cdd_seas[match1[matched]]
 dat$Cdd_siteave<-NA
 dat$Cdd_siteave[matched]<- clim1$Cdd_siteave[match1[matched]]  
 
-dat$Cdd_july_siteave<-NA
-dat$Cdd_july_siteave[matched]<- clim1$Cdd_july_siteave[match1[matched]]  
-
 #clean up
 dat$year= as.factor(dat$year)
 
@@ -247,9 +229,9 @@ dat$gdd_adult= dout[match(dat$spsiteyear, dout$spsiteyear),"gdd_adult"]
 #====================================
 ## FIGURE
 
-#read processed data
-setwd("/Volumes/GoogleDrive/Shared drives/TrEnCh/Projects/GrasshopperDev2015/data/")
-write.csv(dat.mb, "MB_phen_clim.csv")
+##read processed data
+#setwd("/Volumes/GoogleDrive/Shared drives/TrEnCh/Projects/GrasshopperDev2015/data/")
+#dat= read.csv("MB_phen_clim.csv")
 
 #DEVELOPMENTAL INDEX
 #Plot DI by ordinal date
@@ -262,21 +244,24 @@ di.plot= ggplot(data=dat, aes(x=ordinal, y = DI, color=Cdd_siteave, group=siteye
   theme_bw()+xlim(120,200)+
   geom_point()+geom_line(aes(alpha=0.5))+ #+geom_smooth(se=FALSE, aes(alpha=0.5), span=2)+
   scale_colour_gradientn(colours =matlab.like(10))+ylab("development index")+xlab("day of year")+labs(color="mean season gdds")+
-  theme(legend.position = "bottom") + guides(alpha=FALSE)
+  theme(legend.position = "none") + guides(alpha=FALSE)+
+  theme(axis.title=element_text(size=12))
 
 #Plot DI by GDD
 di.plot.gdd= ggplot(data=dat, aes(x=cdd_sum, y = DI, color=Cdd_siteave, group=siteyear, linetype=period))+facet_grid(elev.lab~.) +
   theme_bw()+xlim(0,200)+
   geom_point()+geom_line(aes(alpha=0.5))+ #+geom_smooth(se=FALSE, aes(alpha=0.5),span=2)+
   scale_colour_gradientn(colours =matlab.like(10))+ylab("development index")+xlab("cummulative growing degree days")+labs(color="mean season gdds")+
-  theme(legend.position = "bottom") + guides(alpha=FALSE)
+  theme(legend.position = "right") + guides(alpha=FALSE)+
+  theme(axis.title=element_text(size=12))
 
 #stats
-mod1= lm(DI~ordinal*Cdd_siteave*elev.lab , data=dat)
-mod1= lm(DI~cdd_sum*Cdd_siteave*elev.lab , data=dat)
-#----
-#FIG?
-di.plot +di.plot.gdd
+mod1 <- lmer(DI~poly(ordinal,2)*Cdd_siteave*elev.lab +
+                 (1|year), na.action = 'na.omit', REML=FALSE, data = dat)
+mod1 <- lmer(DI~poly(cdd_sum,2)*Cdd_siteave*elev.lab +
+               (1|year), na.action = 'na.omit', REML=FALSE, data = dat)
+
+Anova(mod1, type=3)
 
 #====================================
 ## M. boulderensis
@@ -284,7 +269,7 @@ di.plot +di.plot.gdd
 # estimated by DI
 
 #aggregate to spsiteyear
-dat.ssy= dat[,c("elev","species","cdd_seas","doy_adult","gdd_adult","spsiteyear","elev.lab","elevation","period","year","Cdd_siteave")  ]
+dat.ssy= dat[,c("elev","species","cdd_seas","doy_adult","gdd_adult","spsiteyear","elev.lab","period","year","Cdd_siteave")  ]
 dups= duplicated(dat.ssy$spsiteyear)
 dat.ssy=dat.ssy[which(dups==FALSE),]
 
@@ -300,7 +285,8 @@ plot.phen.doye=ggplot(data=dat.ssy, aes(x=Cdd_siteave, y = doy_adult, color=elev
   geom_smooth(method="lm",se=F)+
   theme_bw()+ylab("day of year")+xlab("season growing degree days (C)")+
   scale_shape_manual(values = c(21, 22, 23))+
-  scale_alpha_manual(values = c(0.2,0.9))+theme(legend.position="none")
+  scale_alpha_manual(values = c(0.2,0.9))+theme(legend.position="none")+scale_colour_viridis_d()+
+  theme(axis.title=element_text(size=12))
 #GDD metrics: Cdd_siteave cdd_seas
 
 #GDD
@@ -308,27 +294,34 @@ plot.phen.gdde=ggplot(data=dat.ssy, aes(x=Cdd_siteave, y = gdd_adult, color=elev
   geom_point(aes(shape=period, alpha=period, stroke=1), size=3)+
   geom_point(aes(shape=period, stroke=1), size=3)+
   geom_smooth(method="lm",se=F)+
-  theme_bw()+ylab("cummulative growing degree days")+xlab("season growing degree days (C)")+
-  labs(linetype="significance")+
+  theme_bw()+ylab("cummulative gdds")+xlab("season growing degree days (C)")+
+  labs(color="elevation (m)")+
   scale_shape_manual(values = c(21, 22, 23))+
-  scale_alpha_manual(values = c(0.2,0.9))
+  scale_alpha_manual(values = c(0.2,0.9))+scale_colour_viridis_d()+
+  theme(axis.title=element_text(size=12))
 
 #stats
-mod1= lm(gdd_adult~ Cdd_siteave*elevation, data=dat.mb)
-#or elev.lab for factor
+mod1= lm(doy_adult~ Cdd_siteave*elev, data=dat.ssy)
+mod1= lm(gdd_adult~ Cdd_siteave*elev, data=dat.ssy)
+anova(mod1)
+
+#single elevation
+mod1= lm(gdd_adult~ Cdd_siteave, data=dat.ssy[dat.ssy$elev=="3048",])
 
 #FIG?
-#pdf("Fig4_phen_est.pdf", height = 12, width = 10)
-plot.phen.doye + plot.phen.gdde +  plot_layout(widths = c(1, 1))
+setwd("/Volumes/GoogleDrive/Shared drives/TrEnCh/Projects/GrasshopperDev2015/figures/")
 
-#dev.off()
+pdf("Fig4_phen_est.pdf", height = 8, width = 8)
+(di.plot +di.plot.gdd)/(plot.phen.doye + plot.phen.gdde) +  plot_layout(heights = c(1, 0.4))+ 
+  plot_annotation(tag_levels = 'A')
+dev.off()
 
 #=================================
 #by elevation
-ggplot(data=dat.mb, aes(x=elevation, y = doy_adult, color=factor(Cdd_siteave)))+
+ggplot(data=dat, aes(x=elev, y = doy_adult, color=factor(Cdd_siteave)))+
   geom_point() +geom_smooth(method="lm",se=F) #+geom_line() 
 
-ggplot(data=dat.mb, aes(x=elevation, y = gdd_adult, color=factor(Cdd_siteave)))+
+ggplot(data=dat, aes(x=elev, y = gdd_adult, color=factor(Cdd_siteave)))+
   geom_point() +geom_smooth(method="lm",se=F)
 
 #Cdd_siteave

@@ -170,7 +170,6 @@ Source: https://stats.stackexchange.com/questions/171154/fitting-known-equation-
 ```{r}
 fs <- dev.dat %>% filter(Sex=="Female") %>% select(-Female2)
 
-
 dat3048 <- fs %>% filter(Site=="3048m") %>% filter(!is.na(Age_Adult))
 dat3048 <- dat3048 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
 fit3048 <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat3048, start=list(Q10=1.75))
@@ -185,6 +184,10 @@ dat2195 <- fs %>% filter(Site=="2195m") %>% filter(!is.na(Age_Adult))
 dat2195 <- dat2195 %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
 fit2195 <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat2195, start=list(Q10=1.75)) 
 dat2195_c <- cbind(dat2195, fit2195$fitted) %>% rename(fit=`fit2195$fitted`)
+
+fit2195$coefficients
+fit2591$coefficients
+fit3048$coefficients
 ```
 
 Trying to plot them together
@@ -257,4 +260,249 @@ text(as.numeric(fit3048$coefficients)-.25, 34.5, "3048m")
 
 #could put color coded data points here if it would be helpful
 ```
+Q10 ANALYSIS, ADD DAYLENGTH
+```{r}
+#fit by day length
+fs <- dev.dat %>% filter() %>% select(-Female2)
 
+for(k in 1:6){
+
+  if(k==1) dat <- fs %>% filter(Site=="2195m" & Photoperiod=="S") %>% filter(!is.na(Age_Adult))
+  if(k==2) dat <- fs %>% filter(Site=="2195m" & Photoperiod=="L") %>% filter(!is.na(Age_Adult))
+  if(k==3) dat <- fs %>% filter(Site=="2591m" & Photoperiod=="S") %>% filter(!is.na(Age_Adult))
+  if(k==4) dat <- fs %>% filter(Site=="2591m" & Photoperiod=="L") %>% filter(!is.na(Age_Adult))
+  if(k==5) dat <- fs %>% filter(Site=="3048m" & Photoperiod=="S") %>% filter(!is.na(Age_Adult))
+  if(k==6) dat <- fs %>% filter(Site=="3048m" & Photoperiod=="L") %>% filter(!is.na(Age_Adult))
+  
+  dat <- dat %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
+  fit <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat, start=list(Q10=1.75))
+  
+  if(k==1) coefs= fit$coefficients
+  if(k>1) coefs=c(coefs, fit$coefficients)
+}
+
+names(coefs)=c("a1,s","a1,l","b1,s","b1,l","c1,s","c1,l")
+```
+
+```{r}
+#PLOT
+#hv, s by site
+days.hv.s= c(days.dev(coefs[1],1,4), days.dev(coefs[3],1,4), days.dev(coefs[5],1,4) )
+days.hv.l= c(days.dev(coefs[2],1,4), days.dev(coefs[4],1,4), days.dev(coefs[6],1,4) )
+
+days.lv.s= c(days.dev(coefs[1],1,2), days.dev(coefs[3],1,2), days.dev(coefs[5],1,2) )
+days.lv.l= c(days.dev(coefs[2],1,2), days.dev(coefs[4],1,2), days.dev(coefs[6],1,2) )
+
+elevs=c(2195,2591,3048)
+
+days= c(days.hv.s,days.hv.l,days.lv.s,days.lv.l)
+days= as.data.frame(cbind(rep(elevs,4), days))
+colnames(days)=c("elev","days")
+days$temp=c(rep("HV",6), rep("LV",6))
+days$daylength=c(rep("S",3), rep("L",3),rep("S",3), rep("L",3))
+
+#plot
+ggplot(data=days, aes(x=elev, y=days, color=temp,lty=daylength))+geom_point()+geom_line()
+
+```
+divide by sex
+```{r}
+#fit by day length including sex
+
+for(sex in 1:2){
+if(sex==1) fs <- dev.dat %>% filter(Sex=="Female") %>% select(-Female2)
+if(sex==2) fs <- dev.dat %>% filter(Sex=="Male") %>% select(-Female2)
+  
+for(k in 1:6){
+
+  if(k==1) dat <- fs %>% filter(Site=="2195m" & Photoperiod=="S") %>% filter(!is.na(Age_Adult))
+  if(k==2) dat <- fs %>% filter(Site=="2195m" & Photoperiod=="L") %>% filter(!is.na(Age_Adult))
+  if(k==3) dat <- fs %>% filter(Site=="2591m" & Photoperiod=="S") %>% filter(!is.na(Age_Adult))
+  if(k==4) dat <- fs %>% filter(Site=="2591m" & Photoperiod=="L") %>% filter(!is.na(Age_Adult))
+  if(k==5) dat <- fs %>% filter(Site=="3048m" & Photoperiod=="S") %>% filter(!is.na(Age_Adult))
+  if(k==6) dat <- fs %>% filter(Site=="3048m" & Photoperiod=="L") %>% filter(!is.na(Age_Adult))
+  
+  dat <- dat %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
+  fit <- gnls(Age_Adult ~ days.dev(Q10, 1, Tvar), data=dat, start=list(Q10=1.75))
+  
+  if(k==1) coefs= fit$coefficients
+  if(k>1) coefs=c(coefs, fit$coefficients)
+}
+
+names(coefs)=c("a1,s","a1,l","b1,s","b1,l","c1,s","c1,l")
+if(sex==1) coefs.all=coefs
+if(sex==2) coefs.all=rbind(coefs.all, coefs)
+}
+rownames(coefs.all)=c("female","male")
+
+
+```
+
+plot
+```{r}
+#PLOT
+#hv, s by site
+coefs=coefs.all
+days.hv.s.f= c(days.dev(coefs[1,1],1,4), days.dev(coefs[1,3],1,4), days.dev(coefs[1,5],1,4) )
+days.hv.l.f= c(days.dev(coefs[1,2],1,4), days.dev(coefs[1,4],1,4), days.dev(coefs[1,6],1,4) )
+
+days.lv.s.f= c(days.dev(coefs[1,1],1,2), days.dev(coefs[1,3],1,2), days.dev(coefs[1,5],1,2) )
+days.lv.l.f= c(days.dev(coefs[1,2],1,2), days.dev(coefs[1,4],1,2), days.dev(coefs[1,6],1,2) )
+
+days.hv.s.m= c(days.dev(coefs[2,1],1,4), days.dev(coefs[2,3],1,4), days.dev(coefs[2,5],1,4) )
+days.hv.l.m= c(days.dev(coefs[2,2],1,4), days.dev(coefs[2,4],1,4), days.dev(coefs[2,6],1,4) )
+
+days.lv.s.m= c(days.dev(coefs[2,1],1,2), days.dev(coefs[2,3],1,2), days.dev(coefs[2,5],1,2) )
+days.lv.l.m= c(days.dev(coefs[2,2],1,2), days.dev(coefs[2,4],1,2), days.dev(coefs[2,6],1,2) )
+
+elevs=c(2195,2591,3048)
+
+days= c(days.hv.s.f,days.hv.l.f,days.lv.s.f,days.lv.l.f,days.hv.s.m,days.hv.l.m,days.lv.s.m,days.lv.l.m)
+days= as.data.frame(cbind(rep(elevs,8), days))
+colnames(days)=c("elev","days")
+days$temp=c(rep("HV",6), rep("LV",6),rep("HV",6), rep("LV",6))
+days$daylength=c(rep("S",3), rep("L",3),rep("S",3), rep("L",3),rep("S",3), rep("L",3),rep("S",3), rep("L",3))
+days$sex=c(rep("female",12), rep("male",12))
+
+#plot
+ggplot(data=days, aes(x=elev, y=days, color=temp,lty=sex))+geom_point()+geom_line()+
+  facet_grid(.~daylength, scales="free")
+
+```
+plot Q10s
+```{r}
+#to long format
+coefs.long= as.data.frame(c(coefs.all[,1],coefs.all[,2],coefs.all[,3],coefs.all[,4],coefs.all[,5],coefs.all[,6] ))
+coefs.long$elev=c(rep(2195,4), rep(2591,4), rep(3048,4))
+coefs.long$daylength=c(rep(c("S","S","L","L"),3))
+coefs.long$sex=c(rep(c("female","male"),6))
+colnames(coefs.long)[1]="Q10"
+
+#plot
+ggplot(data=coefs.long, aes(x=elev, y=Q10, color=daylength,lty=sex))+geom_point()+geom_line()
+  
+```
+Growth analysis
+
+```{r}
+growth.dat <- Instars_names %>% select(Site, Sex, Temperature, Photoperiod, Female2, Mass_Adult)
+```
+
+
+```{r}
+#estimate Q10s for growth
+
+#assumes R1=1 and arbitrarily requires 1000 units of development
+#12 hours of each temperature (T2l and T2h)
+#days.dev=function(Q10, T2l=22, T2h=26, T1=22)  1/(12/1000*(Q10^((T2l-T1)/10)+ Q10^((T2h-T1)/10)))
+#growth=  function(Q10, days, T2l=22, T2h=26, T1=22)  12*(Q10^((T2l-T1)/10)+ Q10^((T2h-T1)/10))*days
+
+growth=function(Q10, Tvar, days){ #fitting Q10 and R1
+  gr <- 12*days/10000*(Q10^((Tvar)/10)+ Q10^((-Tvar)/10))
+  return(gr)
+} 
+```
+
+```{r}
+#fit by day length including sex
+sexes=c("female","male")
+
+for(sex in 1:2){
+if(sex==1) fs <- growth.dat %>% filter(Sex=="Female") %>% select(-Female2)
+if(sex==2) fs <- growth.dat %>% filter(Sex=="Male") %>% select(-Female2)
+  
+for(k in 1:6){
+
+  if(k==1) {dat <- fs %>% filter(Site=="2195m" & Photoperiod=="S") %>% filter(!is.na(Mass_Adult))
+            daysk= days[which(days$elev=="2195" & days$daylength=="S" & days$sex==sexes[sex]),] }
+  
+  if(k==2) {dat <- fs %>% filter(Site=="2195m" & Photoperiod=="L") %>% filter(!is.na(Mass_Adult))
+            daysk= days[which(days$elev=="2195" & days$daylength=="L" & days$sex==sexes[sex]),] }
+  
+  if(k==3) {dat <- fs %>% filter(Site=="2591m" & Photoperiod=="S") %>% filter(!is.na(Mass_Adult))
+              daysk= days[which(days$elev=="2591" & days$daylength=="S" & days$sex==sexes[sex]),] }
+  
+  if(k==4) {dat <- fs %>% filter(Site=="2591m" & Photoperiod=="L") %>% filter(!is.na(Mass_Adult))
+              daysk= days[which(days$elev=="2591" & days$daylength=="L" & days$sex==sexes[sex]),] }
+  
+  if(k==5) {dat <- fs %>% filter(Site=="3048m" & Photoperiod=="S") %>% filter(!is.na(Mass_Adult))
+              daysk= days[which(days$elev=="3048" & days$daylength=="S" & days$sex==sexes[sex]),] }
+  
+  if(k==6) {dat <- fs %>% filter(Site=="3048m" & Photoperiod=="L") %>% filter(!is.na(Mass_Adult))
+              daysk= days[which(days$elev=="3048" & days$daylength=="L" & days$sex==sexes[sex]),] }
+  
+  dat <- dat %>% mutate(Tvar=ifelse(Temperature=="HV", 4, 2)) 
+  
+  dat$days= daysk[match(dat$Temperature, daysk$temp),"days"]
+  
+  fit <- gnls(Mass_Adult ~ growth(Q10, Tvar, days), data=dat, start=list(Q10=3))
+
+  fc= fit$coefficients
+  if(is.null(fc)) fc=NA
+  
+  if(k==1) coefs= fc
+  if(k>1) coefs=c(coefs, fc)
+}
+
+names(coefs)=c("a1,s","a1,l","b1,s","b1,l","c1,s","c1,l")
+if(sex==1) coefs.all=coefs
+if(sex==2) coefs.all=rbind(coefs.all, coefs)
+}
+rownames(coefs.all)=c("female","male")
+
+```
+
+plot
+```{r}
+#PLOT
+#hv, s by site
+coefs=coefs.all
+
+daysk= days[which(days$temp=="HV" & days$daylength=="S" & days$sex=="female"),]
+days.hv.s.f= c(growth(coefs[1,1],4,daysk[which(daysk$elev==2195),"days"]), growth(coefs[1,3],4,daysk[which(daysk$elev==2591),"days"]), growth(coefs[1,5],4,daysk[which(daysk$elev==3048),"days"]) )
+daysk= days[which(days$temp=="HV" & days$daylength=="L" & days$sex=="female"),]
+days.hv.l.f= c(growth(coefs[1,2],4,daysk[which(daysk$elev==2195),"days"]), growth(coefs[1,4],4,daysk[which(daysk$elev==2591),"days"]), growth(coefs[1,6],4,daysk[which(daysk$elev==3048),"days"]) )
+
+daysk= days[which(days$temp=="LV" & days$daylength=="S" & days$sex=="female"),]
+days.lv.s.f= c(growth(coefs[1,1],2,daysk[which(daysk$elev==2195),"days"]), growth(coefs[1,3],2,daysk[which(daysk$elev==2591),"days"]), growth(coefs[1,5],2,daysk[which(daysk$elev==3048),"days"]) )
+daysk= days[which(days$temp=="LV" & days$daylength=="L" & days$sex=="female"),]
+days.lv.l.f= c(growth(coefs[1,2],2,daysk[which(daysk$elev==2195),"days"]), growth(coefs[1,4],2,daysk[which(daysk$elev==2591),"days"]), growth(coefs[1,6],2,daysk[which(daysk$elev==3048),"days"]) )
+
+daysk= days[which(days$temp=="HV" & days$daylength=="S" & days$sex=="female"),]
+days.hv.s.m= c(growth(coefs[2,1],4,daysk[which(daysk$elev==2195),"days"]), growth(coefs[2,3],4,daysk[which(daysk$elev==2591),"days"]), growth(coefs[2,5],4,daysk[which(daysk$elev==3048),"days"]) )
+daysk= days[which(days$temp=="HV" & days$daylength=="L" & days$sex=="female"),]
+days.hv.l.m= c(growth(coefs[2,2],4,daysk[which(daysk$elev==2195),"days"]), growth(coefs[2,4],4,daysk[which(daysk$elev==2591),"days"]), growth(coefs[2,6],4,daysk[which(daysk$elev==3048),"days"]) )
+
+daysk= days[which(days$temp=="LV" & days$daylength=="S" & days$sex=="female"),]
+days.lv.s.m= c(growth(coefs[2,1],2,daysk[which(daysk$elev==2195),"days"]), growth(coefs[2,3],2,daysk[which(daysk$elev==2591),"days"]), growth(coefs[2,5],2,daysk[which(daysk$elev==3048),"days"]) )
+daysk= days[which(days$temp=="HV" & days$daylength=="L" & days$sex=="female"),]
+days.lv.l.m= c(growth(coefs[2,2],2,daysk[which(daysk$elev==2195),"days"]), growth(coefs[2,4],2,daysk[which(daysk$elev==2591),"days"]), growth(coefs[2,6],2,daysk[which(daysk$elev==3048),"days"]) )
+
+elevs=c(2195,2591,3048)
+
+days= c(days.hv.s.f,days.hv.l.f,days.lv.s.f,days.lv.l.f,days.hv.s.m,days.hv.l.m,days.lv.s.m,days.lv.l.m)
+days= as.data.frame(cbind(rep(elevs,8), days))
+colnames(days)=c("elev","days")
+days$temp=c(rep("HV",6), rep("LV",6),rep("HV",6), rep("LV",6))
+days$daylength=c(rep("S",3), rep("L",3),rep("S",3), rep("L",3),rep("S",3), rep("L",3),rep("S",3), rep("L",3))
+days$sex=c(rep("female",12), rep("male",12))
+
+#plot
+ggplot(data=days, aes(x=elev, y=days, color=temp,lty=sex))+geom_point()+geom_line()+
+  facet_grid(.~daylength, scales="free")
+
+```
+
+plot Q10s
+```{r}
+#to long format
+coefs.long= as.data.frame(c(coefs.all[,1],coefs.all[,2],coefs.all[,3],coefs.all[,4],coefs.all[,5],coefs.all[,6] ))
+coefs.long$elev=c(rep(2195,4), rep(2591,4), rep(3048,4))
+coefs.long$daylength=c(rep(c("S","S","L","L"),3))
+coefs.long$sex=c(rep(c("female","male"),6))
+colnames(coefs.long)[1]="Q10"
+
+#plot
+ggplot(data=coefs.long, aes(x=elev, y=Q10, color=daylength,lty=sex))+geom_point()+geom_line()
+  
+```
