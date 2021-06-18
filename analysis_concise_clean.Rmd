@@ -52,8 +52,11 @@ Functions and labels
 
 
 # New facet label names for supp variable
-Photoperiod.labs <- c("Long photoperiod", "Short photoperiod")
+Photoperiod.labs <- c("Long-day", "Short-day")
 names(Photoperiod.labs) <- c("L", "S")
+
+#CHANGED
+Pplabsnew <- c(L="long-day", S="short-day")
  
 #Temperature.labs <- c("High var", "Low var")
 #names(Temperature.labs) <- c("HV", "LV")
@@ -381,17 +384,16 @@ Instars_names_devinstmass <- Instars_names %>%
 #^I think the warning is ok. We want mass to be numeric / age can be also
 
 
-
-p.devmass <- ggplot(data = Instars_names_devinstmass, aes(x = Site, y = y, color = Temperature, linetype=Sex, shape=Sex)) +
-  facet_grid(meas~Photoperiod, scales="free_y", labeller=labeller(Photoperiod = Photoperiod.labs), switch="y") +
+#CHANGED 6/16
+p.devmass <- ggplot(data = Instars_names_devinstmass, aes(x = Site, y = y, color = Temperature, linetype=Photoperiod, shape=Photoperiod)) +
+  facet_grid(meas~Sex, scales="free_y", labeller=labeller(Photoperiod = Photoperiod.labs), switch="y") +
   stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
-  xlab("Site")+scale_color_manual(values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1)) + 
-  theme_bw() + theme(strip.background = element_blank(), axis.text.x = element_text(angle = 90, vjust = .2, hjust=1), axis.title.y = element_blank(), strip.placement = "outside")
+  xlab("Site")+scale_color_manual(values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1), labels = c("Long-day", "Short-day")) + scale_linetype_discrete(labels = c("Long-day", "Short-day"))+ 
+  theme_bw() + theme(strip.background = element_blank(), axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5), axis.title.y = element_blank(), strip.placement = "outside")
 
 p.devmass
 #ggsave(p.devmass, file="Figures/Fig1_devmass.png")
-
 
 
 ```
@@ -659,7 +661,7 @@ kable(devmasscoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t"
 ```
 
 
-## IMPORTANT NOTE: S2 and S3 mass values are new!
+## IMPORTANT NOTE: S2 and S3 mass values are new! (old new, that is 6/16)
 ##Table S2: Development and mass by instar anova
 ```{r}
 devinstanova <- Anova(devinstmod, type=3)
@@ -717,30 +719,72 @@ kable(devmassinstcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df",
 #PBT, CTmin, CTmax
 ##Figure 2: PBT, CTmin, CTmax
 ```{r}
+
+#CHANGED 6/16
+
+# CTminmax <- CT %>% 
+#   rename(`CTmin (°C)`= CT_min, `CTmax (°C)`= CT_max) %>%
+#   gather(key="meas", value="y", `CTmin (°C)`, `CTmax (°C)`)
+# 
+# PBTnew <- PBT %>% filter(!is.na(Sex)) %>% #WONDERING if I should exclude Sex=NA when PBT is loaded
+#   rename(`PBT (°C)`= Tb_Mean) %>% gather(key="meas", value="y", `PBT (°C)`)
+
 CTminmax <- CT %>% 
-  rename(`CTmin (°C)`= CT_min, `CTmax (°C)`= CT_max) %>%
-  gather(key="meas", value="y", `CTmin (°C)`, `CTmax (°C)`)
+  #rename(`CTmin (°C)`= CT_min, `CTmax (°C)`= CT_max) %>%
+  gather(key="meas", value="y", CT_min, CT_max)
 
 PBTnew <- PBT %>% filter(!is.na(Sex)) %>% #WONDERING if I should exclude Sex=NA when PBT is loaded
-  rename(`PBT (°C)`= Tb_Mean) %>% gather(key="meas", value="y", `PBT (°C)`)
+  rename("PBT"= Tb_Mean) %>% gather(key="meas", value="y", PBT)
 
 CTPBT <- merge(CTminmax, PBTnew, all = TRUE)
 
 
-neworder <- c("CTmax (°C)", "PBT (°C)", "CTmin (°C)")
+# neworder <- c("CTmax (°C)", "PBT (°C)", "CTmin (°C)")
+neworder <- c("CT_max", "PBT", "CT_min")
 CTPBT2 <- arrange(transform(CTPBT,
              meas=factor(meas,levels=neworder)),meas)
 
-p.CTPBT <- ggplot(data = CTPBT2, aes(x = Site, y = y, color = Temperature, linetype=Sex, shape=Sex)) +
-  facet_grid(meas~Photoperiod, scales="free_y", labeller=labeller(Photoperiod = Photoperiod.labs), switch="y") +
+
+#new
+fake_data1 <- expand.grid(meas=unique(CTPBT2$meas),Temperature=c("HV","LV"), Photoperiod=c("L", "S"), Site=c("2195m", "2591m", "3048m"), Sex=unique(CTPBT2$Sex)) %>% mutate(y=recode(meas, CT_max=55, PBT=45, CT_min=15))
+fake_data2 <- expand.grid(meas=unique(CTPBT2$meas),Temperature=c("HV","LV"), Photoperiod=c("L", "S"), Site=c("2195m", "2591m", "3048m"), Sex=unique(CTPBT2$Sex)) %>% mutate(y=recode(meas, CT_max=40, PBT=30, CT_min=0))
+fake_data <- rbind(fake_data1, fake_data2)
+
+
+p.CTPBT <- ggplot(CTPBT2, aes(x= Site, y=y, color=Temperature, linetype=Photoperiod, shape=Photoperiod)) +
+  facet_grid(meas~Sex, scales="free_y", switch="y") +
   stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
   stat_summary(aes(x = as.numeric(as.factor(Site))), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
   xlab("Site")+scale_color_manual(values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1)) + theme_bw() + theme(strip.background = element_blank(), strip.placement = "outside", axis.text.x = element_text(angle = 90, vjust = .2, hjust=1), axis.title.y = element_blank()) 
 
-p.CTPBT
+
+p.CTPBT 
 #ggsave(p.CTPBT, file="Figures/Fig2_CTPBT.png")
 
+
+# ff <- with(facet_bounds,
+#            data.frame(cty=c(ymin,ymax),
+#                       drv=c(drv,drv)))
+
 ```
+Need to merge into above / clean up
+```{r}
+# New facet label names for supp variable
+meas.labs <- c("CTmax (°C)", "PBT (°C)", "CTmin (°C)")
+names(meas.labs) <- c("CT_max", "PBT", "CT_min")
+
+p.CTPBT <- ggplot(CTPBT2, aes(x= Site, y=y, color=Temperature, linetype=Photoperiod, shape=Photoperiod)) + geom_blank(data=fake_data, aes(x = Site, y = y, color = Temperature, linetype=Photoperiod, shape=Photoperiod)) +
+   facet_grid(meas~Sex, scales="free_y", switch="y", labeller=labeller(meas=meas.labs)) +
+   stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+   stat_summary(aes(x = as.numeric(as.factor(Site))), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+   xlab("Site")+scale_color_manual(values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1), labels = c("Long-day", "Short-day")) + scale_linetype_discrete(labels = c("Long-day", "Short-day"))+ theme_bw() + theme(strip.background = element_blank(), strip.placement = "outside", axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5), axis.title.y = element_blank())
+#ggsave(p.CTPBT, file="Figures/Fig2_CTPBT.png")
+
+
+p.CTPBT 
+
+```
+
 
 ##PBT
 
@@ -811,7 +855,7 @@ PBTanova$`Pr(>Chisq)` <- format(PBTanova$`Pr(>Chisq)`, scientific=TRUE, digits=3
 PBTanova$`Pr(>Chisq)` <- as.character(PBTanova$`Pr(>Chisq)`)
 PBTanova <- PBTanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 options(knitr.kable.NA = '')
-kable(PBTanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("Tables/Tab2_PBTanova.png")
+kable(PBTanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("Tables/Tab2_PBTanova.png")
 ```
 ##Table S4: PBT coefficients
 ```{r}
@@ -988,9 +1032,27 @@ CTmaxanova[5,4] <- NA
 
 CTminmaxanova <- cbind(CTminanova,CTmaxanova)
 options(knitr.kable.NA = '')
-kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4)) %>% save_kable("Tables/Tab3_CTminmaxanova.png")
+kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4)) #%>% save_kable("Tables/Tab3_CTminmaxanova.png")
+
 
 ```
+
+## Combined tables 2 and 3
+```{r}
+kab2 <- kable(PBTanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("Tables/Tab2_PBTanova.png")
+kab3 <- kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4))
+
+#https://cran.r-project.org/web/packages/arsenal/vignettes/write2.html#knitrkable
+
+# mylist <- list(
+#   tableby(sex ~ age, data = mockstudy),
+#   freqlist(table(mockstudy[, c("sex", "arm")])),
+#   knitr::kable(head(mockstudy))
+# )
+# 
+# write2pdf(mylist, paste0(tmpdir, "/test.mylist.pdf"), quiet = TRUE)
+```
+
 ## Table S5: CTmin and CTmax coefficients
 ```{r}
 CTmincoeff <- summary(CTminmod)
@@ -1021,7 +1083,7 @@ kable(CTminmaxcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p"
 
 #Performance
 
-Tables still incomplete
+Tables still incomplete (I THINK THIS IS AN OLD COMMENT 6/16)
 
 ##Figure 3: Hopping and feeding performance
 ```{r}
@@ -1042,9 +1104,9 @@ p.feed <- ggplot(data = FeedPLmass, aes(x = TestTemp, y = Tot_Consumed_scaled, c
 legend <- get_legend(p.feed)
 #plot_grid(p.hop, p.feed + theme(legend.position="none"), legend, labels = c('a', 'b'), nrow=2)
 
-p.perf <- plot_grid(p.hop, p.feed + theme(legend.position="none"), labels = c('a', 'b'), nrow=2) 
+p.perf <- plot_grid(p.hop, p.feed + theme(legend.position="none"), labels = c('A', 'B'), nrow=2) 
 p.perf <- plot_grid(p.perf, legend, nrow=2, rel_heights = c(2, .1))
-ggsave(p.perf, file="Figures/Fig3_perf.png")
+#ggsave(p.perf, file="Figures/Fig3_perf.png")
 p.perf #it looks weird in Rstudio for me but it's fine in the saved image (7x7)
 ```
 
