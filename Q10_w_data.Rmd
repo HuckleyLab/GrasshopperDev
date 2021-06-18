@@ -378,14 +378,19 @@ coefs.long$daylength=c(rep(c("S","S","L","L"),3))
 coefs.long$sex=c(rep(c("female","male"),6))
 colnames(coefs.long)[1]="Q10"
 
+#Realtive Q10
+#scale 0 to 1
+coefs.long$Q10scaled= coefs.long$Q10/max(coefs.long$Q10)
+
 #plot
-ggplot(data=coefs.long, aes(x=elev, y=Q10, color=daylength,lty=sex))+geom_point()+geom_line()
+ggplot(data=coefs.long, aes(x=elev, y=Q10scaled, color=daylength,lty=sex))+geom_point()+geom_line()+ylab("Relative growth Q10")
   
 ```
 Growth analysis
 
 ```{r}
-growth.dat <- Instars_names %>% select(Site, Sex, Temperature, Photoperiod, Female2, Mass_Adult)
+growth.dat <- Instars_names %>% select(Site, Sex, Temperature, Photoperiod, Female2, Mass_Adult,Age_Adult)
+growth.dat$Mass_per_time= growth.dat$Mass_Adult/as.numeric(growth.dat$Age_Adult)
 ```
 
 
@@ -401,6 +406,7 @@ growth=function(Q10, Tvar, days){ #fitting Q10 and R1
   gr <- 12*days/10000*(Q10^((Tvar)/10)+ Q10^((-Tvar)/10))
   return(gr)
 } 
+
 ```
 
 ```{r}
@@ -435,7 +441,7 @@ for(k in 1:6){
   
   dat$days= daysk[match(dat$Temperature, daysk$temp),"days"]
   
-  fit <- gnls(Mass_Adult ~ growth(Q10, Tvar, days), data=dat, start=list(Q10=3))
+  fit <- gnls(Mass_Adult ~ growth(Q10, Tvar, days=days), data=dat, start=list(Q10=3))
 
   fc= fit$coefficients
   if(is.null(fc)) fc=NA
@@ -480,15 +486,17 @@ days.lv.l.m= c(growth(coefs[2,2],2,daysk[which(daysk$elev==2195),"days"]), growt
 
 elevs=c(2195,2591,3048)
 
-days= c(days.hv.s.f,days.hv.l.f,days.lv.s.f,days.lv.l.f,days.hv.s.m,days.hv.l.m,days.lv.s.m,days.lv.l.m)
-days= as.data.frame(cbind(rep(elevs,8), days))
-colnames(days)=c("elev","days")
-days$temp=c(rep("HV",6), rep("LV",6),rep("HV",6), rep("LV",6))
-days$daylength=c(rep("S",3), rep("L",3),rep("S",3), rep("L",3),rep("S",3), rep("L",3),rep("S",3), rep("L",3))
-days$sex=c(rep("female",12), rep("male",12))
+#days are actually growth so change name
+grow= c(days.hv.s.f,days.hv.l.f,days.lv.s.f,days.lv.l.f,days.hv.s.m,days.hv.l.m,days.lv.s.m,days.lv.l.m)
+grow= as.data.frame(cbind(rep(elevs,8), grow))
+colnames(grow)=c("elev","growth")
+grow$temp=c(rep("HV",6), rep("LV",6),rep("HV",6), rep("LV",6))
+grow$daylength=c(rep("S",3), rep("L",3),rep("S",3), rep("L",3),rep("S",3), rep("L",3),rep("S",3), rep("L",3))
+grow$sex=c(rep("female",12), rep("male",12))
+#actually growth
 
 #plot
-ggplot(data=days, aes(x=elev, y=days, color=temp,lty=sex))+geom_point()+geom_line()+
+ggplot(data=grow, aes(x=elev, y=growth, color=temp,lty=sex))+geom_point()+geom_line()+
   facet_grid(.~daylength, scales="free")
 
 ```
@@ -502,7 +510,9 @@ coefs.long$daylength=c(rep(c("S","S","L","L"),3))
 coefs.long$sex=c(rep(c("female","male"),6))
 colnames(coefs.long)[1]="Q10"
 
+#scale 0 to 1
+coefs.long$Q10scaled= coefs.long$Q10/max(coefs.long$Q10)
+
 #plot
-ggplot(data=coefs.long, aes(x=elev, y=Q10, color=daylength,lty=sex))+geom_point()+geom_line()
-  
+ggplot(data=coefs.long, aes(x=elev, y=Q10scaled, color=daylength,lty=sex))+geom_point()+geom_line()+ylab("Relative growth Q10")
 ```
