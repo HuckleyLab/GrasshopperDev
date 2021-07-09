@@ -16,7 +16,7 @@ Load packages and functions
 rm(list=ls(all = TRUE))
 library(stringr)
 library(foreach)
-library(ggplot2)
+library(ggplot2) #issue
 library(grid)
 library(gridExtra)
 library(plotrix)
@@ -31,14 +31,15 @@ library(nls2)
 library(tidyverse)
 library(kableExtra)
 library(faraway)
-library(sjPlot) #for plot_new
+library(sjPlot) #for plot_model
 library(tidyverse)
-library(knitr)
+#library(knitr)
 library(afex)
 library(RColorBrewer)
 library(ggeffects)
 library(cowplot)
 library(stringr)
+library(effects)
 
 #webshot::install_phantomjs()
 library(kableExtra)
@@ -393,7 +394,8 @@ p.devmass <- ggplot(data = Instars_names_devinstmass, aes(x = Site, y = y, color
   theme_bw() + theme(strip.background = element_blank(), axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5), axis.title.y = element_blank(), strip.placement = "outside")
 
 p.devmass
-#ggsave(p.devmass, file="Figures/Fig1_devmass.png")
+#ggsave(p.devmass, file="Figures/Fig1_devmass.pdf")
+#DONE
 
 
 ```
@@ -439,6 +441,66 @@ aictab(list(nLmer0, nLmer1, nLmer2, nLmer3, nLmer4, nLmer5), modnames = c("nLmer
 #best is nLmer0
 devmod <- nLmer0
 ```
+```{r}
+Instars_names_devinstmass <- Instars_names %>% 
+  rename(`Time to adult (d)` = Age_Adult, `Mass as adult (g)` = Mass_Adult) %>%
+  gather(key="meas", value="y", `Time to adult (d)`, `Mass as adult (g)`) %>%
+  transform(meas=factor(meas,levels=c("Time to adult (d)", "Mass as adult (g)")))
+#^I think the warning is ok. We want mass to be numeric / age can be also
+
+
+#CHANGED 6/16
+p.devmass <- ggplot(data = Instars_names_devinstmass, aes(x = Site, y = y, color = Temperature, linetype=Photoperiod, shape=Photoperiod)) +
+  facet_grid(meas~Sex, scales="free_y", labeller=labeller(Photoperiod = Photoperiod.labs), switch="y") +
+  stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  stat_summary(aes(x = as.numeric(as.factor(Site))), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  xlab("Site")+scale_color_manual(values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1), labels = c("Long-day", "Short-day")) + scale_linetype_discrete(labels = c("Long-day", "Short-day"))+ 
+  theme_bw() + theme(strip.background = element_blank(), axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5), axis.title.y = element_blank(), strip.placement = "outside")
+
+p.devmass
+#ggsave(p.devmass, file="Figures/Fig1_devmass.pdf")
+#DONE
+# ggplot(data = Instars, aes(x = Site, y = Age_Adult, color = Temp, linetype=sex)) +
+# #  rory_theme +
+#   facet_grid(cols=vars(Light), labeller=labeller(sex = sex.labs, Light = Light.labs)) +
+#   stat_summary(fun.y = mean, fun.ymin = MinSE, fun.ymax = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+#   stat_summary(aes(x = as.numeric(as.factor(Site))), fun.y = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+#   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+#   ylab("Time to adult (d)") + xlab("Site")+scale_color_manual(name="Temperature", labels=c("High var", "Low var"), values = c("#D6604D", "#4393C3")) + scale_x_discrete(labels=c("2195m", "2591m", "3048m"))+ theme(axis.text.x = element_text(angle = 90, vjust = .2, hjust=1))
+```
+
+## Fig S1
+Less nice
+```{r}
+# 4 way interaction
+#plot_model(devmod,type="pred",terms=c("Site","Temperature","Photoperiod","Sex"), show.data=FALSE, show.legend=FALSE) #%>% 
+
+```
+Nicer
+```{r}
+# ggplot(data = Instars_names, aes(x = Site, y = Age_Adult, color = Temperature, linetype=Photoperiod, shape=Photoperiod)) +
+# #  rory_theme +
+#   facet_grid(cols=vars(Sex), labeller=labeller(Photoperiod = Photoperiod.labs)) +
+#   stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+#   stat_summary(aes(x = as.numeric(as.factor(Site))), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
+#   xlab("Site")+scale_color_manual(values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1), labels = c("Long-day", "Short-day")) + scale_linetype_discrete(labels = c("Long-day", "Short-day"))+
+#   theme_bw()
+
+mydf <- ggpredict(devmod,terms=c("Site","Temperature","Photoperiod","Sex"))
+mydf <- mydf %>% rename(Site=x, Temperature=group, Sex=panel, Photoperiod=facet)
+p.devpred <- ggplot(data = mydf, aes(x = Site, y = predicted, color = Temperature, linetype=Photoperiod, shape=Photoperiod)) +
+#  rory_theme +
+  facet_grid(cols=vars(Sex), labeller=labeller(Photoperiod = Photoperiod.labs)) + 
+  geom_line(aes(group=interaction(Sex, Photoperiod, Temperature)), position = position_dodge(width = .3)) + geom_point(size=2, position = position_dodge(width = .3)) + geom_errorbar(aes(ymin=conf.low,ymax=conf.high), width=.3, position = position_dodge(width = .3)) +
+  #stat_summary(fun = predicted, fun.min = conf.low, fun.max = conf.high, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(aes(x = as.numeric(as.factor(Site))), fun = Site, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  xlab("Site")+ ylab("Predicted time to adult (d)")+ scale_color_manual(values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1), labels = c("Long-day", "Short-day")) + scale_linetype_discrete(labels = c("Long-day", "Short-day"))+
+  theme_bw() +theme(strip.background = element_blank(), axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5))
+
+p.devpred
+ggsave(p.devpred, file="Figures/FigS1_devpred.png")
+```
+
 
 ## Development by instar
 ```{r}
@@ -463,6 +525,23 @@ hist(as.numeric(Instars$Mass_Adult), breaks = 15)
 #could also consider gamma
 #in either of these cases glmer says model failed to converge for most complex
 ```
+Brief digression: Is there a linear relationship between adult mass and adult development time? Nope!
+```{r}
+l <- lm(as.numeric(Mass_Adult) ~ as.numeric(Age_Adult), data=Instars_names)
+summary(l)
+```
+
+Shape digression
+
+```{r}
+masscubrt <- Instars_names$Mass_Adult^(1/3)
+fem2 <- lm(Instars_names$Femur_Adult ~ masscubrt)
+summary(fem2)
+
+pro2 <- lm(Instars_names$Pronotum_Adult ~ masscubrt)
+summary(pro2)
+```
+
 
 Model selection / AIC comparison 
 ```{r}
@@ -510,6 +589,42 @@ aictab(list(LmerM0, LmerM1, LmerM2, LmerM3, LmerM4, LmerM5), modnames = c("LmerM
 massmod <- LmerM0
 
 ```
+
+
+## Fig S3
+```{r}
+mydf <- ggeffect(massmod,terms=c("Site","Temperature","Sex"))
+mydf <- mydf %>% rename(Site=x, Temperature=group, Sex=facet)
+p.masspredsig <- ggplot(data = mydf, aes(x = Site, y = predicted, color = Temperature)) +
+#  rory_theme +
+  facet_grid(cols=vars(Sex)) + 
+  geom_line(aes(group=interaction(Sex, Temperature)), linetype="longdash", position = position_dodge(width = .3)) + geom_point(alpha=.5, size=2, position = position_dodge(width = .3)) + geom_errorbar(aes(ymin=conf.low,ymax=conf.high), width=.3, linetype="longdash", position = position_dodge(width = .3)) +
+  #stat_summary(fun = predicted, fun.min = conf.low, fun.max = conf.high, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(aes(x = as.numeric(as.factor(Site))), fun = Site, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  xlab("Site")+ ylab("Predicted mass as adult (g)")+ scale_color_manual(values = c("#D6604D", "#4393C3")) + 
+  theme_bw() +theme(strip.background = element_blank(), axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5))
+
+p.masspredsig
+#ggsave(p.masspredsig, file="Figures/FigS3_masspredsig.png")
+```
+## Fig S4
+```{r}
+mydf <- ggeffect(massmod,terms=c("Site","Temperature","Photoperiod"))
+mydf <- mydf %>% rename(Site=x, Temperature=group, Photoperiod=facet)
+p.masspredinsig <- ggplot(data = mydf, aes(x = Site, y = predicted, color = Temperature, linetype=Photoperiod, shape=Photoperiod)) +
+#  rory_theme +
+  facet_grid(labeller=labeller(Photoperiod = Photoperiod.labs)) + 
+  geom_line(aes(group=interaction(Photoperiod, Temperature)), position = position_dodge(width = .3)) + geom_point(size=2, position = position_dodge(width = .3)) + geom_errorbar(aes(ymin=conf.low,ymax=conf.high), width=.3, position = position_dodge(width = .3)) +
+  #stat_summary(fun = predicted, fun.min = conf.low, fun.max = conf.high, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+  #stat_summary(aes(x = as.numeric(as.factor(Site))), fun = Site, geom = "line", size = .5, position = position_dodge(width = .3)) +
+  xlab("Site")+ ylab("Predicted time to adult (d)")+ scale_color_manual(values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1), labels = c("Long-day", "Short-day")) + scale_linetype_discrete(labels = c("Long-day", "Short-day"))+
+  theme_bw() +theme(strip.background = element_blank(), axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5))
+
+p.masspredinsig
+ggsave(p.masspredinsig, file="Figures/FigS4_masspredinsig.png")
+```
+
+
 ##TESTING OTHERS
 log
 ```{r}
@@ -661,7 +776,7 @@ kable(devmasscoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t"
 ```
 
 
-## IMPORTANT NOTE: S2 and S3 mass values are new! (old new, that is 6/16)
+## IMPORTANT NOTE: S2 and S3 mass values are new! (old new, that is -6/16)
 ##Table S2: Development and mass by instar anova
 ```{r}
 devinstanova <- Anova(devinstmod, type=3)
@@ -778,7 +893,7 @@ p.CTPBT <- ggplot(CTPBT2, aes(x= Site, y=y, color=Temperature, linetype=Photoper
    stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
    stat_summary(aes(x = as.numeric(as.factor(Site))), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) +
    xlab("Site")+scale_color_manual(values = c("#D6604D", "#4393C3")) + scale_shape_manual(values=c(16,1), labels = c("Long-day", "Short-day")) + scale_linetype_discrete(labels = c("Long-day", "Short-day"))+ theme_bw() + theme(strip.background = element_blank(), strip.placement = "outside", axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5), axis.title.y = element_blank())
-#ggsave(p.CTPBT, file="Figures/Fig2_CTPBT.png")
+#ggsave(p.CTPBT, file="Figures/Fig3_CTPBT.pdf") #DONE
 
 
 p.CTPBT 
@@ -1039,19 +1154,30 @@ kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum 
 
 ## Combined tables 2 and 3
 ```{r}
-kab2 <- kable(PBTanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("Tables/Tab2_PBTanova.png")
-kab3 <- kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4))
+#run these go get labels A and B (including save_kable)
 
-#https://cran.r-project.org/web/packages/arsenal/vignettes/write2.html#knitrkable
+kable(PBTanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html", align = 'clc', caption = 'A') %>% kable_styling() #%>% save_kable("Tables/Tab2_PBTanova.png")
 
-# mylist <- list(
-#   tableby(sex ~ age, data = mockstudy),
-#   freqlist(table(mockstudy[, c("sex", "arm")])),
-#   knitr::kable(head(mockstudy))
-# )
-# 
-# write2pdf(mylist, paste0(tmpdir, "/test.mylist.pdf"), quiet = TRUE)
+kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum Sq", "df", "F value", "p"), escape=FALSE, format="html", align = 'clc', caption = 'B') %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin" = 4, "CTmax" = 4)) #%>% save_kable("Tables/Tab3_CTminmaxanova.png")
+
 ```
+
+```{r}
+im2 <- image_border(image_read("Tables/Tab2_PBTanova.png"), "white", "0x20")
+im3 <- image_border(image_read("Tables/Tab3_CTminmaxanova.png"), "white", "0x20")
+
+
+img <- c(im2, im3)
+tab2and3 <- image_append(img, stack = TRUE)
+
+#image_write(tab2and3, path = "Tables/Tab2n3_PBTCTminmaxanova.png", format = "png")
+
+```
+```{r}
+print(im2)
+```
+
+
 
 ## Table S5: CTmin and CTmax coefficients
 ```{r}
@@ -1106,7 +1232,7 @@ legend <- get_legend(p.feed)
 
 p.perf <- plot_grid(p.hop, p.feed + theme(legend.position="none"), labels = c('A', 'B'), nrow=2) 
 p.perf <- plot_grid(p.perf, legend, nrow=2, rel_heights = c(2, .1))
-#ggsave(p.perf, file="Figures/Fig3_perf.png")
+ggsave(p.perf, file="Figures/Fig4_perf.pdf")
 p.perf #it looks weird in Rstudio for me but it's fine in the saved image (7x7)
 ```
 
@@ -1387,4 +1513,3 @@ plot_model(LmerF1, type= "pred", terms = c("TestTemp", "Sex", "Site"), show.data
 plot_model(LmerF1, type= "pred", terms = c("TestTemp", "Temperature", "Photoperiod", "Site"), show.data=FALSE)
 
 ```
-

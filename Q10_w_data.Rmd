@@ -33,7 +33,7 @@ library(kableExtra)
 library(faraway)
 library(sjPlot) #for plot_new
 library(tidyverse)
-library(knitr)
+#library(knitr) #Julia updated some packages and loading this caused an issue
 library(afex)
 library(RColorBrewer)
 library(ggeffects)
@@ -386,6 +386,18 @@ coefs.long$Q10scaled= coefs.long$Q10/max(coefs.long$Q10)
 ggplot(data=coefs.long, aes(x=elev, y=Q10scaled, color=daylength,lty=sex))+geom_point()+geom_line()+ylab("Relative growth Q10")
   
 ```
+
+Reformatted image
+```{r}
+coefs.long2 <- coefs.long
+coefs.long2$elev <- recode(coefs.long2$elev, "2195"="2195m", "2591"="2591m", "3048"="3048m")
+p.devQ10 <- ggplot(data=coefs.long2, aes(x=elev, y=Q10scaled,lty=daylength, shape=sex, fill=daylength))+geom_point(size=3)+stat_summary(aes(x = as.numeric(as.factor(elev))), fun = mean, geom = "line", size = .5)+ xlab("Site") + ylab("Relative development Q10") + scale_shape_manual(name="Sex", values=c(22,24), labels = c("Female", "Male")) + scale_linetype_discrete(name="Photoperiod", labels = c("Long-day", "Short-day"))+ scale_fill_manual(name = "Photoperiod", values = c("black", "white"), labels = c("Long-day", "Short-day")) +
+  theme_bw() + theme(strip.background = element_blank(), axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5), strip.placement = "outside") + 
+  guides(shape=guide_legend(override.aes=list(fill=c("gray", "gray"))), fill=guide_legend(override.aes=list(shape=c(21,21), fill=c("black", "white"))))
+p.devQ10
+#ggsave(p.devQ10, file="Figures/devq10.png")
+```
+
 Growth analysis
 
 ```{r}
@@ -516,3 +528,23 @@ coefs.long$Q10scaled= coefs.long$Q10/max(coefs.long$Q10)
 #plot
 ggplot(data=coefs.long, aes(x=elev, y=Q10scaled, color=daylength,lty=sex))+geom_point()+geom_line()+ylab("Relative growth Q10")
 ```
+```{r}
+coefs.long2 <- coefs.long
+coefs.long2$elev <- recode(coefs.long2$elev, "2195"="2195m", "2591"="2591m", "3048"="3048m")
+p.groQ10 <- ggplot(data=coefs.long2, aes(x=elev, y=Q10scaled,lty=daylength, shape=sex, fill=daylength))+geom_point(size=3)+stat_summary(aes(x = as.numeric(as.factor(elev))), fun = mean, geom = "line", size = .5)+ xlab("Site") + ylab("Relative growth Q10") + scale_shape_manual(name="Sex", values=c(22,24), labels = c("Female", "Male")) + scale_linetype_discrete(name="Photoperiod", labels = c("Long-day", "Short-day"))+ scale_fill_manual(name = "Photoperiod", values = c("black", "white"), labels = c("Long-day", "Short-day")) +
+  theme_bw() + theme(strip.background = element_blank(), axis.text.x = element_text(angle = 0, vjust = .2, hjust=.5), strip.placement = "outside", legend.position = "bottom") + 
+  guides(shape=guide_legend(override.aes=list(fill=c("gray", "gray"))), fill=guide_legend(override.aes=list(shape=c(21,21), fill=c("black", "white"))))
+p.groQ10
+#ggsave(p.devQ10, file="Figures/groq10.png")
+```
+### Plot the two together (dev and growth)
+
+```{r}
+legend <- get_legend(p.groQ10)
+p.Q10 <- plot_grid(p.devQ10 + theme(legend.position="none"), p.groQ10 + theme(legend.position="none"), labels = c('A', 'B'), nrow=2) 
+p.Q10 <- plot_grid(p.Q10, legend, nrow=2, rel_heights = c(2, .1))
+ggsave(p.Q10, file="Figures/Fig2_Q10.pdf") #DONE
+p.Q10 #it looks weird in Rstudio for me but it's fine in the saved image (7x7)
+```
+
+
