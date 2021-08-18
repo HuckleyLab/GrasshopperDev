@@ -378,6 +378,7 @@ FeedPLmass <- FeedPLmass %>% mutate(Tot_Consumed_scaled=Tot_Consumed/Mass_Adult,
 #Growth and Development
 ##Figure 1: Adult age and mass
 ```{r}
+
 Instars_names_devinstmass <- Instars_names %>% 
   rename(`Time to adult (d)` = Age_Adult, `Mass as adult (g)` = Mass_Adult) %>%
   gather(key="meas", value="y", `Time to adult (d)`, `Mass as adult (g)`) %>%
@@ -398,6 +399,17 @@ p.devmass
 #DONE
 
 
+#calculate Ns
+#sums to 183 
+#sum(is.na(Instars_names_devinstmass$y) & Instars_names_devinstmass$meas=="Time to adult (d)")  
+#sum(is.na(Instars_names_devinstmass$y) & Instars_names_devinstmass$meas=="Mass as adult (g)")
+s <- Instars_names_devinstmass %>% filter(!is.na(y), meas=="Mass as adult (g)") %>% group_by(Temperature, Photoperiod, Site, Sex) %>% summarise(N=n())
+sum(s$N)
+
+mean(s$N)
+median(s$N)
+max(s$N)
+min(s$N)
 ```
 
 
@@ -725,6 +737,7 @@ massinstmod <- lmer(as.numeric(value) ~ Sex * Site * Temperature * Photoperiod *
 devanova <- Anova(devmod, type=3)
 devanova$Significance <- "   "
 devanova$Significance[devanova$`Pr(>Chisq)`<.05] <- "*  "
+devanova$Significance[devanova$`Pr(>Chisq)`<.01] <- "** "
 devanova$Significance[devanova$`Pr(>Chisq)`<.001] <- "***"
 devanova$`Pr(>Chisq)` <- format(devanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 devanova$`Pr(>Chisq)` <- as.character(devanova$`Pr(>Chisq)`)
@@ -733,6 +746,7 @@ devanova <- devanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 massanova <- Anova(massmod, type=3)
 massanova$Significance <- "   "
 massanova$Significance[massanova$`Pr(>Chisq)`<.05] <- "*  "
+massanova$Significance[massanova$`Pr(>Chisq)`<.01] <- "** "
 massanova$Significance[massanova$`Pr(>Chisq)`<.001] <- "***"
 massanova$`Pr(>Chisq)` <- format(massanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 massanova$`Pr(>Chisq)` <- as.character(massanova$`Pr(>Chisq)`)
@@ -750,6 +764,7 @@ devcoeff <- summary(devmod)
 devcoeff <- data.frame(devcoeff[["coefficients"]])
 devcoeff$Significance <- "   "
 devcoeff$Significance[devcoeff$`Pr...t..`<.05] <- "*  "
+devcoeff$Significance[devcoeff$`Pr...t..`<.01] <- "** "
 devcoeff$Significance[devcoeff$`Pr...t..`<.001] <- "***"
 devcoeff$`Pr...t..` <- format(devcoeff$`Pr...t..`, scientific=TRUE, digits=3)
 devcoeff$`Pr...t..` <- as.character(devcoeff$`Pr...t..`)
@@ -761,6 +776,7 @@ masscoeff <- summary(massmod)
 masscoeff <- data.frame(masscoeff[["coefficients"]])
 masscoeff$Significance <- "   "
 masscoeff$Significance[masscoeff$`Pr...t..`<.05] <- "*  "
+masscoeff$Significance[masscoeff$`Pr...t..`<.01] <- "** "
 masscoeff$Significance[masscoeff$`Pr...t..`<.001] <- "***"
 masscoeff$`Pr...t..` <- format(masscoeff$`Pr...t..`, scientific=TRUE, digits=3)
 masscoeff$`Pr...t..` <- as.character(masscoeff$`Pr...t..`)
@@ -782,6 +798,7 @@ kable(devmasscoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t"
 devinstanova <- Anova(devinstmod, type=3)
 devinstanova$Significance <- "   "
 devinstanova$Significance[devinstanova$`Pr(>Chisq)`<.05] <- "*  "
+devinstanova$Significance[devinstanova$`Pr(>Chisq)`<.01] <- "** "
 devinstanova$Significance[devinstanova$`Pr(>Chisq)`<.001] <- "***"
 devinstanova$`Pr(>Chisq)` <- format(devinstanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 devinstanova$`Pr(>Chisq)` <- as.character(devinstanova$`Pr(>Chisq)`)
@@ -790,6 +807,7 @@ devinstanova <- devinstanova %>% unite(p, c(`Pr(>Chisq)`, Significance), sep="")
 massinstanova <- Anova(massinstmod, type=3)
 massinstanova$Significance <- "   "
 massinstanova$Significance[massinstanova$`Pr(>Chisq)`<.05] <- "*  "
+massinstanova$Significance[massinstanova$`Pr(>Chisq)`<.01] <- "** "
 massinstanova$Significance[massinstanova$`Pr(>Chisq)`<.001] <- "***"
 massinstanova$`Pr(>Chisq)` <- format(massinstanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 massinstanova$`Pr(>Chisq)` <- as.character(massinstanova$`Pr(>Chisq)`)
@@ -808,6 +826,7 @@ devinstcoeff <- summary(devinstmod)
 devinstcoeff <- data.frame(devinstcoeff[["coefficients"]])
 devinstcoeff$Significance <- "   "
 devinstcoeff$Significance[devinstcoeff$`Pr...t..`<.05] <- "*  "
+devinstcoeff$Significance[devinstcoeff$`Pr...t..`<.01] <- "** "
 devinstcoeff$Significance[devinstcoeff$`Pr...t..`<.001] <- "***"
 devinstcoeff$`Pr...t..` <- format(devinstcoeff$`Pr...t..`, scientific=TRUE, digits=3)
 devinstcoeff$`Pr...t..` <- as.character(devinstcoeff$`Pr...t..`)
@@ -819,6 +838,7 @@ massinstcoeff <- summary(massinstmod)
 massinstcoeff <- data.frame(massinstcoeff[["coefficients"]])
 massinstcoeff$Significance <- "   "
 massinstcoeff$Significance[massinstcoeff$`Pr...t..`<.05] <- "*  "
+massinstcoeff$Significance[massinstcoeff$`Pr...t..`<.01] <- "** "
 massinstcoeff$Significance[massinstcoeff$`Pr...t..`<.001] <- "***"
 massinstcoeff$`Pr...t..` <- format(massinstcoeff$`Pr...t..`, scientific=TRUE, digits=3)
 massinstcoeff$`Pr...t..` <- as.character(massinstcoeff$`Pr...t..`)
@@ -882,6 +902,32 @@ p.CTPBT
 #                       drv=c(drv,drv)))
 
 ```
+
+```{r}
+#Ns for fig 3
+s <- CTPBT2 %>% filter(!is.na(y)) %>% group_by(Site, Temperature, Photoperiod, Sex) %>% summarise(CT_min=sum(meas=="CT_min"), PBT=sum(meas=="PBT"), CT_max=sum(meas=="CT_max"))
+
+paste("min")
+mean(s$CT_min)
+median(s$CT_min)
+max(s$CT_min)
+min(s$CT_min)
+
+paste("max")
+mean(s$CT_max)
+median(s$CT_max)
+max(s$CT_max)
+min(s$CT_max)
+
+paste("PBT")
+mean(s$PBT)
+median(s$PBT)
+max(s$PBT)
+min(s$PBT)
+
+```
+
+
 Need to merge into above / clean up
 ```{r}
 # New facet label names for supp variable
@@ -965,6 +1011,7 @@ PBTmod <- LmerPBT.6
 PBTanova <- Anova(PBTmod, type=3)
 PBTanova$Significance <- "   "
 PBTanova$Significance[PBTanova$`Pr(>Chisq)`<.05] <- "*  "
+PBTanova$Significance[PBTanova$`Pr(>Chisq)`<.01] <- "** "
 PBTanova$Significance[PBTanova$`Pr(>Chisq)`<.001] <- "***"
 PBTanova$`Pr(>Chisq)` <- format(PBTanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 PBTanova$`Pr(>Chisq)` <- as.character(PBTanova$`Pr(>Chisq)`)
@@ -978,6 +1025,7 @@ PBTcoeff <- summary(PBTmod)
 PBTcoeff <- data.frame(PBTcoeff[["coefficients"]])
 PBTcoeff$Significance <- "   "
 PBTcoeff$Significance[PBTcoeff$`Pr...t..`<.05] <- "*  "
+PBTcoeff$Significance[PBTcoeff$`Pr...t..`<.01] <- "** "
 PBTcoeff$Significance[PBTcoeff$`Pr...t..`<.001] <- "***"
 PBTcoeff$`Pr...t..` <- format(PBTcoeff$`Pr...t..`, scientific=TRUE, digits=3)
 PBTcoeff$`Pr...t..` <- as.character(PBTcoeff$`Pr...t..`)
@@ -1129,6 +1177,7 @@ CTmaxmod <- lm_txl_max
 CTminanova <- Anova(CTminmod, type=3)
 CTminanova$Significance <- "   "
 CTminanova$Significance[CTminanova$`Pr(>F)`<.05] <- "*  "
+CTminanova$Significance[CTminanova$`Pr(>F)`<.01] <- "** "
 CTminanova$Significance[CTminanova$`Pr(>F)`<.001] <- "***"
 CTminanova$`Pr(>F)` <- format(CTminanova$`Pr(>F)`, scientific=TRUE, digits=3)
 CTminanova$`Pr(>F)` <- as.character(CTminanova$`Pr(>F)`)
@@ -1139,6 +1188,7 @@ CTmaxanova <- Anova(CTmaxmod, type=3)
 rownames(CTmaxanova) <- c()
 CTmaxanova$Significance <- "   "
 CTmaxanova$Significance[CTmaxanova$`Pr(>F)`<.05] <- "*  "
+CTmaxanova$Significance[CTmaxanova$`Pr(>F)`<.01] <- "** "
 CTmaxanova$Significance[CTmaxanova$`Pr(>F)`<.001] <- "***"
 CTmaxanova$`Pr(>F)` <- format(CTmaxanova$`Pr(>F)`, scientific=TRUE, digits=3)
 CTmaxanova$`Pr(>F)` <- as.character(CTmaxanova$`Pr(>F)`)
@@ -1185,6 +1235,7 @@ CTmincoeff <- summary(CTminmod)
 CTmincoeff <- data.frame(CTmincoeff[["coefficients"]])
 CTmincoeff$Significance <- "   "
 CTmincoeff$Significance[CTmincoeff$`Pr...t..`<.05] <- "*  "
+CTmincoeff$Significance[CTmincoeff$`Pr...t..`<.01] <- "** "
 CTmincoeff$Significance[CTmincoeff$`Pr...t..`<.001] <- "***"
 CTmincoeff$`Pr...t..` <- format(CTmincoeff$`Pr...t..`, scientific=TRUE, digits=3)
 CTmincoeff$`Pr...t..` <- as.character(CTmincoeff$`Pr...t..`)
@@ -1196,6 +1247,7 @@ CTmaxcoeff <- summary(CTmaxmod)
 CTmaxcoeff <- data.frame(CTmaxcoeff[["coefficients"]])
 CTmaxcoeff$Significance <- "   "
 CTmaxcoeff$Significance[CTmaxcoeff$`Pr...t..`<.05] <- "*  "
+CTmaxcoeff$Significance[CTmaxcoeff$`Pr...t..`<.01] <- "** "
 CTmaxcoeff$Significance[CTmaxcoeff$`Pr...t..`<.001] <- "***"
 CTmaxcoeff$`Pr...t..` <- format(CTmaxcoeff$`Pr...t..`, scientific=TRUE, digits=3)
 CTmaxcoeff$`Pr...t..` <- as.character(CTmaxcoeff$`Pr...t..`)
@@ -1234,6 +1286,40 @@ p.perf <- plot_grid(p.hop, p.feed + theme(legend.position="none"), labels = c('A
 p.perf <- plot_grid(p.perf, legend, nrow=2, rel_heights = c(2, .1))
 ggsave(p.perf, file="Figures/Fig4_perf.pdf")
 p.perf #it looks weird in Rstudio for me but it's fine in the saved image (7x7)
+```
+```{r}
+# p.hop <- ggplot(data = Hop_Long, aes(x = TestTemp, y = value, col = Site)) +
+#   facet_grid(Temperature~Sex+Photoperiod, labeller=labeller(Photoperiod = Photoperiod.labs)) +
+#   stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+#   stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
+#   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+#   ylab("Hopping distance (cm)") + xlab("") + theme_bw() + theme(strip.background = element_blank(), legend.position="none") + coord_cartesian(xlim=c(10, 40))
+# 
+# p.feed <- ggplot(data = FeedPLmass, aes(x = TestTemp, y = Tot_Consumed_scaled, col = Site)) +
+#   facet_grid(Temperature~Sex+Photoperiod, labeller=labeller(Photoperiod = Photoperiod.labs)) +
+#   stat_summary(fun = mean, fun.min = MinSE, fun.max = MaxSE, na.rm = TRUE, size = .5, position = position_dodge(width = .3)) +
+#   stat_summary(aes(x = as.numeric(TestTemp)), fun = mean, geom = "line", size = .5, position = position_dodge(width = .3)) + scale_color_manual(labels=c("2195m", "2591m", "3048m"), values = brewer.pal(n = 8, name = "Blues")[c(8,6,4)]) +
+#   #stat_summary(fun.data = Give.N, geom = "text", fun.y = median, position = position_dodge(width = .6), size = 7) +
+#   ylab("Mass-scaled leaf area consumed (cm²/g, 8h)") + xlab("Test temperature (°C)") + theme_bw() + theme(strip.background = element_blank(), axis.title.y = element_text(size=9), legend.position="bottom") + coord_cartesian(xlim=c(10, 40))
+
+s_hop <- Hop_Long %>% filter(!is.na(value)) %>% group_by(Temperature, Photoperiod, Site, Sex) %>% summarise(`10`=sum(TestTemp==10), `17`=sum(TestTemp==17), `25`=sum(TestTemp==25), `35`=sum(TestTemp==35))
+#sum(s_hop$N)
+s_hop
+
+mean(s_hop$`35`/5)
+median(s_hop$`35`/5)
+max(s_hop$`35`/5)
+min(s_hop$`35`/5)
+
+
+s_feed <- FeedPLmass %>% filter(!is.na(Tot_Consumed_scaled)) %>% group_by(Temperature, Photoperiod, Site, Sex) %>% summarise(`20`=sum(TestTemp==20), `30`=sum(TestTemp==30), `40`=sum(TestTemp==40))
+
+#s_feed
+mean(s_feed$`20`)
+median(s_feed$`20`)
+max(s_feed$`20`)
+min(s_feed$`20`)
+
 ```
 
 
@@ -1281,6 +1367,7 @@ hopanova <- Anova(hopmod, type=3)
 
 hopanova$Significance <- "   "
 hopanova$Significance[hopanova$`Pr(>Chisq)`<.05] <- "*  "
+hopanova$Significance[hopanova$`Pr(>Chisq)`<.01] <- "** "
 hopanova$Significance[hopanova$`Pr(>Chisq)`<.001] <- "***"
 hopanova$`Pr(>Chisq)` <- format(hopanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 hopanova$`Pr(>Chisq)` <- as.character(hopanova$`Pr(>Chisq)`)
@@ -1299,6 +1386,7 @@ s <- data.frame(s[["coefficients"]])
 
 s$Significance <- "   "
 s$Significance[s$`Pr...t..`<.05] <- "*  "
+s$Significance[s$`Pr...t..`<.01] <- "** "
 s$Significance[s$`Pr...t..`<.001] <- "***"
 s$`Pr...t..` <- format(s$`Pr...t..`, scientific=TRUE, digits=3)
 s$`Pr...t..` <- as.character(s$`Pr...t..`)
@@ -1405,6 +1493,7 @@ feedmod <- LmerF1
 a <- Anova(LmerF3.4, type=3)
 a$Significance <- "   "
 a$Significance[a$`Pr(>Chisq)`<.05] <- "*  "
+a$Significance[a$`Pr(>Chisq)`<.01] <- "** "
 a$Significance[a$`Pr(>Chisq)`<.001] <- "***"
 a$`Pr(>Chisq)` <- format(a$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 a$`Pr(>Chisq)` <- as.character(a$`Pr(>Chisq)`)
@@ -1419,6 +1508,7 @@ kable(a, digits=3, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p"), escap
 hopanova <- Anova(hopmod, type=3)
 hopanova$Significance <- "   "
 hopanova$Significance[hopanova$`Pr(>Chisq)`<.05] <- "*  "
+hopanova$Significance[hopanova$`Pr(>Chisq)`<.01] <- "** "
 hopanova$Significance[hopanova$`Pr(>Chisq)`<.001] <- "***"
 hopanova$`Pr(>Chisq)` <- format(hopanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 hopanova$`Pr(>Chisq)` <- as.character(hopanova$`Pr(>Chisq)`)
@@ -1430,6 +1520,7 @@ feedanova <- Anova(feedmod, type=3)
 rownames(feedanova) <- c()
 feedanova$Significance <- "   "
 feedanova$Significance[feedanova$`Pr(>Chisq)`<.05] <- "*  "
+feedanova$Significance[feedanova$`Pr(>Chisq)`<.01] <- "** "
 feedanova$Significance[feedanova$`Pr(>Chisq)`<.001] <- "***"
 feedanova$`Pr(>Chisq)` <- format(feedanova$`Pr(>Chisq)`, scientific=TRUE, digits=3)
 feedanova$`Pr(>Chisq)` <- as.character(feedanova$`Pr(>Chisq)`)
@@ -1448,6 +1539,7 @@ hopcoeff <- summary(hopmod)
 hopcoeff <- data.frame(hopcoeff[["coefficients"]])
 hopcoeff$Significance <- "   "
 hopcoeff$Significance[hopcoeff$`Pr...t..`<.05] <- "*  "
+hopcoeff$Significance[hopcoeff$`Pr...t..`<.01] <- "** "
 hopcoeff$Significance[hopcoeff$`Pr...t..`<.001] <- "***"
 hopcoeff$`Pr...t..` <- format(hopcoeff$`Pr...t..`, scientific=TRUE, digits=3)
 hopcoeff$`Pr...t..` <- as.character(hopcoeff$`Pr...t..`)
@@ -1460,6 +1552,7 @@ feedcoeff <- summary(feedmod)
 feedcoeff <- data.frame(feedcoeff[["coefficients"]])
 feedcoeff$Significance <- "   "
 feedcoeff$Significance[feedcoeff$`Pr...t..`<.05] <- "*  "
+feedcoeff$Significance[feedcoeff$`Pr...t..`<.01] <- "** "
 feedcoeff$Significance[feedcoeff$`Pr...t..`<.001] <- "***"
 feedcoeff$`Pr...t..` <- format(feedcoeff$`Pr...t..`, scientific=TRUE, digits=3)
 feedcoeff$`Pr...t..` <- as.character(feedcoeff$`Pr...t..`)
