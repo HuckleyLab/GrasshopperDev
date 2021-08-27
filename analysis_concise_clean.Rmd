@@ -410,6 +410,9 @@ mean(s$N)
 median(s$N)
 max(s$N)
 min(s$N)
+
+#how many different mothers (per site)?
+Instars_names %>% group_by(Site) %>% summarise(nF=length(unique(Female2)))
 ```
 
 
@@ -816,7 +819,7 @@ rownames(massinstanova) <- c()
 
 devmassinstanova <- cbind(devinstanova, massinstanova)
 options(knitr.kable.NA = '')
-kable(devmassinstanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p","<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age" = 3, "Mass" = 3)) #%>% save_kable("Tables/TabS2_devmassinstanova.png")
+kable(devmassinstanova, digits=1, col.names=c("<var>&chi;<sup>2</sup></var>", "df", "p","<var>&chi;<sup>2</sup></var>", "df", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age" = 3, "Mass" = 3)) %>% save_kable("Tables/TabS2_devmassinstanova.png")
 ```
 
 
@@ -847,7 +850,7 @@ rownames(massinstcoeff) <- c()
 
 devmassinstcoeff <- cbind(devinstcoeff, massinstcoeff)
 options(knitr.kable.NA = '')
-kable(devmassinstcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age (d)" = 5, "Mass (g)" = 5)) #%>% save_kable("Tables/TabS3_devmassinstcoeff.png")
+kable(devmassinstcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Age (d)" = 5, "Mass (g)" = 5)) %>% save_kable("Tables/TabS3_devmassinstcoeff.png")
 ```
 
 
@@ -1033,7 +1036,7 @@ PBTcoeff <- PBTcoeff %>% unite(p, c(`Pr...t..`, Significance), sep="")
 rownames(PBTcoeff) <- rownames(PBTcoeff) %>% str_remove_all(paste(c("Sex", "Temperature", "Photoperiod", "Site"), collapse = "|")) %>% str_replace("S", "Short")
 #shorter alternative is get rid of current str_replaces and add str_replace("Male", "M")
 options(knitr.kable.NA = '')
-kable(PBTcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() #%>% save_kable("Tables/TabS4_PBTcoeff.png")
+kable(PBTcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% save_kable("Tables/TabS4_PBTcoeff.png")
 ```
 ##CTmin
 
@@ -1213,18 +1216,19 @@ kable(CTminmaxanova, digits=1, col.names=c("Sum Sq", "df", "F value", "p", "Sum 
 ```
 
 ```{r}
-im2 <- image_border(image_read("Tables/Tab2_PBTanova.png"), "white", "0x20")
-im3 <- image_border(image_read("Tables/Tab3_CTminmaxanova.png"), "white", "0x20")
+##image_border not recognized for some reason, but it worked before
+#im2 <- image_border(image_read("Tables/Tab2_PBTanova.png"), "white", "0x20")
+#im3 <- image_border(image_read("Tables/Tab3_CTminmaxanova.png"), "white", "0x20")
 
 
-img <- c(im2, im3)
-tab2and3 <- image_append(img, stack = TRUE)
+#img <- c(im2, im3)
+#tab2and3 <- image_append(img, stack = TRUE)
 
 #image_write(tab2and3, path = "Tables/Tab2n3_PBTCTminmaxanova.png", format = "png")
 
 ```
 ```{r}
-print(im2)
+#print(im2)
 ```
 
 
@@ -1256,7 +1260,7 @@ rownames(CTmaxcoeff) <- c()
 
 CTminmaxcoeff <- cbind(CTmincoeff, CTmaxcoeff)
 options(knitr.kable.NA = '')
-kable(CTminmaxcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p", "Coefficient", "Std. Error",  "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin (°C)" = 4, "CTmax (°C)" = 4)) #%>% save_kable("Tables/TabS5_CTminmaxcoeff.png")
+kable(CTminmaxcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "t", "p", "Coefficient", "Std. Error",  "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "CTmin (°C)" = 4, "CTmax (°C)" = 4)) %>% save_kable("Tables/TabS5_CTminmaxcoeff.png")
 ```
 
 #Performance
@@ -1563,7 +1567,7 @@ perfcoeff <- merge(hopcoeff, feedcoeff, by="row.names", all=TRUE)
 perfcoeff <- transform(perfcoeff[match(rownames(hopcoeff), perfcoeff$Row.names),], row.names=Row.names, Row.names=NULL)
 #perfcoeff
 options(knitr.kable.NA = '')
-kable(perfcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Hopping distance (cm)" = 5, "Mass-scaled leaf area consumed (cm²/g, 8h)" = 5)) #%>% save_kable("Tables/TabS5_perfcoeff.png")
+kable(perfcoeff, digits=3, col.names=c("Coefficient", "Std. Error", "df", "t", "p", "Coefficient", "Std. Error", "df", "t", "p"), escape=FALSE, format="html") %>% kable_styling() %>% add_header_above(c(" " = 1, "Hopping distance (cm)" = 5, "Mass-scaled leaf area consumed (cm²/g, 8h)" = 5)) %>% save_kable("Tables/TabS6_perfcoeff.png")
 
 ```
 
