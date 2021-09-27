@@ -38,13 +38,13 @@ inds= which(!is.na(clim2$Min) & !is.na(clim2$Max))
 clim2$dd=NA
 clim2$dd[inds]= mapply(degree_days, T_min=clim2$Min[inds], T_max=clim2$Max[inds], LDT=0, UDT=100, method="single.sine")
 
-#cummulative dd by year, starting March 1
+#cumulative dd by year, starting March 1
 clim2= clim2%>%
   group_by(Year)%>% arrange(Ordinal) %>%
   dplyr::mutate(cumsum=cumsum(replace_na(dd, 0)))
 
 #---------------------
-#cummulative degree days
+#cumulative degree days
 #cumsum within groups
 clim1 = clim2 %>% group_by(Year,Site) %>% arrange(Ordinal) %>% dplyr::mutate(cdd_sum = cumsum(replace_na(dd, 0)) ) 
 
@@ -251,7 +251,7 @@ di.plot= ggplot(data=dat, aes(x=ordinal, y = DI, color=Cdd_siteave, group=siteye
 di.plot.gdd= ggplot(data=dat, aes(x=cdd_sum, y = DI, color=Cdd_siteave, group=siteyear, linetype=period))+facet_grid(elev.lab~.) +
   theme_bw()+xlim(0,200)+
   geom_point()+geom_line(aes(alpha=0.5))+ #+geom_smooth(se=FALSE, aes(alpha=0.5),span=2)+
-  scale_colour_gradientn(colours =matlab.like(10))+ylab("development index")+xlab("cummulative growing degree days")+labs(color="mean season gdds")+
+  scale_colour_gradientn(colours =matlab.like(10))+ylab("development index")+xlab("cumulative growing degree days")+labs(color="mean season gdds")+
   theme(legend.position = "right") + guides(alpha=FALSE)+
   theme(axis.title=element_text(size=12))
 
@@ -294,7 +294,7 @@ plot.phen.gdde=ggplot(data=dat.ssy, aes(x=Cdd_siteave, y = gdd_adult, color=elev
   geom_point(aes(shape=period, alpha=period, stroke=1), size=3)+
   geom_point(aes(shape=period, stroke=1), size=3)+
   geom_smooth(method="lm",se=F)+
-  theme_bw()+ylab("cummulative gdds")+xlab("season growing degree days (C)")+
+  theme_bw()+ylab("cumulative gdds")+xlab("season growing degree days (C)")+
   labs(color="elevation (m)")+
   scale_shape_manual(values = c(21, 22, 23))+
   scale_alpha_manual(values = c(0.2,0.9))+scale_colour_viridis_d()+
